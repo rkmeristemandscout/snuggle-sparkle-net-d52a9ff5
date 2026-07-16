@@ -271,7 +271,7 @@ export const updatePlanStripeIds = createServerFn({ method: "POST" })
     if (!isSA) throw new Error("Only platform super admins can edit plan Stripe IDs");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, string | null> = {};
+    const patch: { stripe_product_id?: string | null; stripe_price_id?: string | null } = {};
     if (data.stripeProductId !== undefined) patch.stripe_product_id = data.stripeProductId || null;
     if (data.stripePriceId !== undefined) patch.stripe_price_id = data.stripePriceId || null;
     const { error: uErr } = await supabaseAdmin.from("plans").update(patch).eq("id", data.planId);
