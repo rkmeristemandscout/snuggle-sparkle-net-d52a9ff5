@@ -134,7 +134,7 @@ function Dashboard() {
       <div className="grid place-items-center py-24">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Welcome to Stackly</CardTitle>
+            <CardTitle>Welcome to Multi-tenant SaaS</CardTitle>
             <CardDescription>
               You don't belong to any organization yet. Create your first workspace to get started.
             </CardDescription>
