@@ -313,11 +313,20 @@ function AuditLogsPage() {
                 </div>
                 <div>
                   <div className="text-xs uppercase text-muted-foreground">Actor</div>
-                  <div>
-                    {selected.actor_id
-                      ? (actors[selected.actor_id]?.full_name ?? selected.actor_id)
-                      : "System"}
-                  </div>
+                  {selected.actor_id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActorFilter(selected.actor_id);
+                        setSelected(null);
+                      }}
+                      className="hover:underline text-primary"
+                    >
+                      {actors[selected.actor_id]?.full_name ?? selected.actor_id}
+                    </button>
+                  ) : (
+                    <div>System</div>
+                  )}
                 </div>
                 {selected.entity_type && (
                   <div>
