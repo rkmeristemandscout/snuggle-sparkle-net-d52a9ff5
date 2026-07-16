@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/public/stripe/webhook")({
               const s = event.data.object as Stripe.Checkout.Session;
               const orgId = s.metadata?.organization_id ?? (await orgIdFromCustomer(s.customer as string));
               if (orgId && s.subscription) {
-                const sub = await stripe.subscriptions.retrieve(s.subscription as string) as unknown as Stripe.Subscription & { current_period_start: number; current_period_end: number };
+                const sub: any = await stripe.subscriptions.retrieve(s.subscription as string);
                 const planId = await planIdFromPrice(sub.items.data[0]?.price.id);
                 await supabaseAdmin.from("subscriptions").upsert({
                   organization_id: orgId,
@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/public/stripe/webhook")({
             case "customer.subscription.created":
             case "customer.subscription.updated":
             case "customer.subscription.deleted": {
-              const sub = event.data.object as Stripe.Subscription & { current_period_start?: number; current_period_end?: number };
+              const sub: any = event.data.object;
               const orgId = sub.metadata?.organization_id ?? (await orgIdFromCustomer(sub.customer as string));
               if (orgId) {
                 const planId = await planIdFromPrice(sub.items.data[0]?.price.id);
@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/public/stripe/webhook")({
             case "invoice.payment_failed":
             case "invoice.finalized":
             case "invoice.updated": {
-              const inv = event.data.object as Stripe.Invoice;
+              const inv: any = event.data.object;
               const orgId = await orgIdFromCustomer(inv.customer as string);
               if (orgId) {
                 await supabaseAdmin.from("invoices").upsert({
@@ -109,7 +109,7 @@ export const Route = createFileRoute("/api/public/stripe/webhook")({
             }
             case "payment_intent.succeeded":
             case "payment_intent.payment_failed": {
-              const pi = event.data.object as Stripe.PaymentIntent & { invoice?: string | null };
+              const pi: any = event.data.object;
               const orgId = await orgIdFromCustomer(pi.customer as string);
               if (orgId) {
                 const latestCharge = pi.latest_charge
