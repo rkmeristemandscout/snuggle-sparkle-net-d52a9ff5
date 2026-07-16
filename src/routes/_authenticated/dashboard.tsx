@@ -34,6 +34,24 @@ function Dashboard() {
   const { user } = useSession();
   const { currentMembership, currentOrgId } = useCurrentOrg();
   const org = currentMembership?.organization;
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!currentOrgId) return;
+    const channel = supabase
+      .channel(`dashboard:${currentOrgId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "organization_members", filter: `organization_id=eq.${currentOrgId}` },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "teams", filter: `organization_id=eq.${currentOrgId}` },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "organization_invitations", filter: `organization_id=eq.${currentOrgId}` },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentOrgId, qc]);
 
   const stats = useQuery({
     enabled: !!currentOrgId,
