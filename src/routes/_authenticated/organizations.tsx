@@ -36,7 +36,7 @@ function OrganizationsPage() {
       const { data, error } = await supabase.rpc("create_organization", {
         _name: v.name,
         _slug: v.slug,
-        _description: v.description || null,
+        _description: v.description ? v.description : undefined,
       });
       if (error) throw error;
       return data;
