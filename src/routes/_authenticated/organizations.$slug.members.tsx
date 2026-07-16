@@ -63,9 +63,8 @@ function MembersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organization_invitations")
-        .select("id, email, role, token, accepted_at, expires_at, created_at")
+        .select("id, email, role, token, accepted_at, rejected_at, expires_at, created_at")
         .eq("organization_id", org!.id)
-        .is("accepted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -111,6 +110,30 @@ function MembersPage() {
     },
     onSuccess: () => {
       toast.success("Invitation revoked");
+      qc.invalidateQueries({ queryKey: ["invitations", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resend = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invitation resent with a new link");
+      qc.invalidateQueries({ queryKey: ["invitations", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const expire = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("expire_invitation", { _invitation_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invitation expired");
       qc.invalidateQueries({ queryKey: ["invitations", org?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -230,50 +253,86 @@ function MembersPage() {
 
         {canManage && (
           <section className="rounded-xl border bg-card p-6">
-            <h2 className="text-lg font-semibold">Pending invitations</h2>
+            <h2 className="text-lg font-semibold">Invitations</h2>
             {invites.isLoading ? (
               <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
             ) : invites.data && invites.data.length > 0 ? (
               <ul className="mt-4 space-y-3">
                 {invites.data.map((inv) => {
                   const url = `${window.location.origin}/join/${inv.token}`;
+                  const status = inv.accepted_at
+                    ? "accepted"
+                    : inv.rejected_at
+                      ? "rejected"
+                      : new Date(inv.expires_at) < new Date()
+                        ? "expired"
+                        : "pending";
+                  const isPending = status === "pending";
                   return (
                     <li key={inv.id} className="rounded-lg border p-3">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{inv.email}</p>
                           <p className="text-xs text-muted-foreground">
-                            {inv.role} · expires {new Date(inv.expires_at).toLocaleDateString()}
+                            {inv.role} · {isPending
+                              ? `expires ${new Date(inv.expires_at).toLocaleDateString()}`
+                              : status}
                           </p>
                         </div>
-                        <div className="flex gap-1">
+                        <Badge
+                          variant={
+                            status === "pending" ? "secondary"
+                            : status === "accepted" ? "default"
+                            : "destructive"
+                          }
+                        >
+                          {status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {isPending && (
                           <Button
-                            size="icon"
-                            variant="ghost"
+                            size="sm" variant="ghost"
                             onClick={() => {
                               navigator.clipboard.writeText(url);
                               toast.success("Link copied");
                             }}
-                            aria-label="Copy invitation link"
                           >
-                            <Copy className="h-4 w-4" />
+                            <Copy className="mr-1 h-3.5 w-3.5" /> Copy link
                           </Button>
+                        )}
+                        {!inv.accepted_at && (
                           <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => revoke.mutate(inv.id)}
-                            aria-label="Revoke invitation"
+                            size="sm" variant="ghost"
+                            onClick={() => resend.mutate(inv.id)}
+                            disabled={resend.isPending}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Resend
                           </Button>
-                        </div>
+                        )}
+                        {isPending && (
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => expire.mutate(inv.id)}
+                            disabled={expire.isPending}
+                          >
+                            Expire
+                          </Button>
+                        )}
+                        <Button
+                          size="sm" variant="ghost" className="text-destructive"
+                          onClick={() => revoke.mutate(inv.id)}
+                          disabled={revoke.isPending}
+                        >
+                          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                        </Button>
                       </div>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">No pending invitations.</p>
+              <p className="mt-4 text-sm text-muted-foreground">No invitations yet.</p>
             )}
           </section>
         )}
