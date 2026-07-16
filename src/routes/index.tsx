@@ -15,7 +15,7 @@ function Landing() {
       <header className="border-b">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="text-lg font-semibold tracking-tight">
-            Stackly
+            Multi-tenant SaaS
           </Link>
           <nav className="flex items-center gap-2">
             {loading ? null : user ? (
