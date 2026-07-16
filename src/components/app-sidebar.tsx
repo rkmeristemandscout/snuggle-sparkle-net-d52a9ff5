@@ -43,7 +43,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">Stackly</p>
+              <p className="truncate text-sm font-semibold">Multi-tenant SaaS</p>
               <p className="truncate text-xs text-muted-foreground">
                 {currentMembership?.organization.name ?? "No organization"}
               </p>

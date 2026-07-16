@@ -44,7 +44,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <Link to="/" className="text-lg font-semibold">Stackly</Link>
+          <Link to="/" className="text-lg font-semibold">Multi-tenant SaaS</Link>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your account</p>
         </div>
 
