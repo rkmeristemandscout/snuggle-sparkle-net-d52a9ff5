@@ -117,9 +117,9 @@ function FeatureFlagsPage() {
             <DialogContent>
               <DialogHeader><DialogTitle>Create feature flag</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <div><Label>Key</Label><Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="new_dashboard" /></div>
-                <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="New Dashboard" /></div>
-                <div><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                <div><Label htmlFor="ff-key">Key</Label><Input id="ff-key" name="key" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="new_dashboard" /></div>
+                <div><Label htmlFor="ff-name">Name</Label><Input id="ff-name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="New Dashboard" /></div>
+                <div><Label htmlFor="ff-description">Description</Label><Input id="ff-description" name="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
               </div>
               <DialogFooter>
                 <Button onClick={() => createFlag.mutate()} disabled={!form.key.trim() || !form.name.trim() || createFlag.isPending}>Create</Button>
