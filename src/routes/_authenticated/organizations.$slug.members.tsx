@@ -154,7 +154,7 @@ function MembersPage() {
         ) : (
           <ul className="mt-4 divide-y">
             {members.data?.map((m) => {
-              const profile = m.profile as { full_name: string | null; avatar_url: string | null } | null;
+              const profile = m.profile;
               const isSelf = m.user_id === user?.id;
               return (
                 <li key={m.id} className="flex items-center justify-between py-3">
