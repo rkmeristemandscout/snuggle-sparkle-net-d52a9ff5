@@ -155,6 +155,8 @@ function FeatureFlagsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">Rollout</span>
                         <Input
+                          id={`ff-rollout-${f.id}`}
+                          name={`rollout-${f.id}`}
                           type="number" min={0} max={100}
                           className="w-16"
                           value={f.rollout_percentage}
