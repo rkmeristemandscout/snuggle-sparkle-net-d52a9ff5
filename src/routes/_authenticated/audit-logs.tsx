@@ -82,12 +82,13 @@ function AuditLogsPage() {
   const [category, setCategory] = useState<string>("all");
   const [range, setRange] = useState<string>("7d");
   const [query, setQuery] = useState("");
+  const [actorFilter, setActorFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Log | null>(null);
   const qc = useQueryClient();
 
   const { data: logs = [], isLoading } = useQuery({
     enabled: !!currentOrgId && canView,
-    queryKey: ["audit-logs", currentOrgId, category, range],
+    queryKey: ["audit-logs", currentOrgId, category, range, actorFilter],
     queryFn: async () => {
       const cfg = RANGES.find((r) => r.key === range);
       let q = supabase
@@ -97,6 +98,7 @@ function AuditLogsPage() {
         .order("created_at", { ascending: false })
         .limit(500);
       if (category !== "all") q = q.eq("category", category);
+      if (actorFilter) q = q.eq("actor_id", actorFilter);
       if (cfg?.hours) {
         const since = new Date(Date.now() - cfg.hours * 3600_000).toISOString();
         q = q.gte("created_at", since);
@@ -204,6 +206,22 @@ function AuditLogsPage() {
               </SelectContent>
             </Select>
           </div>
+          {actorFilter && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Filtered by actor:</span>
+              <Badge variant="secondary" className="gap-2">
+                {actors[actorFilter]?.full_name ?? actorFilter}
+                <button
+                  type="button"
+                  onClick={() => setActorFilter(null)}
+                  className="hover:text-destructive"
+                  aria-label="Clear actor filter"
+                >
+                  ×
+                </button>
+              </Badge>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -244,7 +262,18 @@ function AuditLogsPage() {
                           <div className="text-[11px] font-mono text-muted-foreground">{log.action}</div>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {actor?.full_name ?? (log.actor_id ? "Unknown user" : "System")}
+                          {log.actor_id ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setActorFilter(log.actor_id); }}
+                              className="text-left hover:underline text-primary"
+                              title="Filter events by this actor"
+                            >
+                              {actor?.full_name ?? "Unknown user"}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">System</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {log.entity_type ? (
@@ -284,11 +313,20 @@ function AuditLogsPage() {
                 </div>
                 <div>
                   <div className="text-xs uppercase text-muted-foreground">Actor</div>
-                  <div>
-                    {selected.actor_id
-                      ? (actors[selected.actor_id]?.full_name ?? selected.actor_id)
-                      : "System"}
-                  </div>
+                  {selected.actor_id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActorFilter(selected.actor_id);
+                        setSelected(null);
+                      }}
+                      className="hover:underline text-primary"
+                    >
+                      {actors[selected.actor_id]?.full_name ?? selected.actor_id}
+                    </button>
+                  ) : (
+                    <div>System</div>
+                  )}
                 </div>
                 {selected.entity_type && (
                   <div>
