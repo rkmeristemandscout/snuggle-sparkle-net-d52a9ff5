@@ -1034,6 +1034,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      current_user_email: { Args: never; Returns: string }
       expire_invitation: {
         Args: { _invitation_id: string }
         Returns: undefined
