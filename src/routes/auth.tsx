@@ -109,7 +109,10 @@ function SignInForm() {
     const { error } = await supabase.auth.signInWithPassword(values);
     setLoading(false);
     if (error) toast.error(error.message);
-    else toast.success("Welcome back");
+    else {
+      toast.success("Welcome back");
+      supabase.rpc("log_auth_event", { _action: "login" }).then(() => {}, () => {});
+    }
   }
 
   return (

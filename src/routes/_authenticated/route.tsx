@@ -55,6 +55,7 @@ function TopBar() {
   const { theme, toggle } = useTheme();
 
   async function signOut() {
+    try { await supabase.rpc("log_auth_event", { _action: "logout" }); } catch { /* best-effort */ }
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();

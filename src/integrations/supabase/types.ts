@@ -1072,6 +1072,10 @@ export type Database = {
         Returns: boolean
       }
       leave_organization: { Args: { _org: string }; Returns: undefined }
+      log_auth_event: {
+        Args: { _action: string; _org?: string }
+        Returns: undefined
+      }
       notify_org_members: {
         Args: {
           _except: string
