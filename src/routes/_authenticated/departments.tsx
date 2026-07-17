@@ -193,13 +193,9 @@ function EditRow({
     resolver: zodResolver(departmentSchema),
     defaultValues: { name: dept.name, slug: dept.slug, description: dept.description ?? "" },
   });
+  const updFn = useServerFn(updateDepartment);
   const update = useMutation({
-    mutationFn: async (v: DepartmentValues) => {
-      const { error } = await supabase.from("departments").update({
-        name: v.name, slug: v.slug, description: v.description || null,
-      }).eq("id", dept.id);
-      if (error) throw error;
-    },
+    mutationFn: async (v: DepartmentValues) => updFn({ data: { departmentId: dept.id, ...v } }),
     onSuccess: () => { toast.success("Department updated"); onDone(); },
     onError: (e: Error) => toast.error(e.message),
   });
