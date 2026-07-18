@@ -671,14 +671,26 @@ function MembersPage() {
           </TableHeader>
           <TableBody>
             {members.isLoading || (canManage && invites.isLoading) ? (
-              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
             ) : (
               filtered.map((r) => {
                 const isSelf = r.userId && r.userId === user?.id;
+                const selectable = r.kind === "invitation" && r.status === "pending" && !!r.token;
                 return (
-                  <TableRow key={r.key}>
+                  <TableRow key={r.key} data-state={selectedInviteIds.has(r.id) ? "selected" : undefined}>
+                    {canManage && (
+                      <TableCell>
+                        {selectable ? (
+                          <Checkbox
+                            aria-label={`Select invitation ${r.email}`}
+                            checked={selectedInviteIds.has(r.id)}
+                            onCheckedChange={(v) => toggleSelect(r.id, !!v)}
+                          />
+                        ) : null}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Avatar className="h-8 w-8">
                         {r.avatarUrl && <AvatarImage src={r.avatarUrl} alt="" />}
