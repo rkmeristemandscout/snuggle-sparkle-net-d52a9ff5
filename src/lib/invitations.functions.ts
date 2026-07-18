@@ -61,3 +61,34 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       return { sent: false, reason: "failed", detail: err?.message };
     }
   });
+
+// Lightweight status probe used by the Members page to show a banner /
+// checklist when invite emails will not actually be delivered.
+export const getInvitationEmailStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const hasLovableKey = !!process.env.LOVABLE_API_KEY;
+    let hasHelper = false;
+    let hasTemplate = false;
+    try {
+      const modPath = "@/lib/email-templates/send-email";
+      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
+      hasHelper = !!mod?.sendTemplateEmail;
+      if (hasHelper) {
+        const regPath = "@/lib/email-templates/registry";
+        const reg: any = await import(/* @vite-ignore */ regPath).catch(() => null);
+        const templates = reg?.TEMPLATES ?? reg?.templates ?? {};
+        hasTemplate = !!templates["organization-invitation"];
+      }
+    } catch {
+      // ignore — treated as not configured
+    }
+    return {
+      configured: hasLovableKey && hasHelper && hasTemplate,
+      checks: {
+        lovableKey: hasLovableKey,
+        emailHelper: hasHelper,
+        invitationTemplate: hasTemplate,
+      },
+    };
+  });
