@@ -27,6 +27,8 @@ import {
   getInvitationEmailStatus,
   sendInvitationEmail,
   sendTestInvitationEmail,
+  listInvitationEmailLogs,
+  type InvitationEmailLog,
 } from "@/lib/invitations.functions";
 import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
 const OrgInvitationEmail = OrgInvitationTemplate.component;
