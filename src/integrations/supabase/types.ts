@@ -1069,6 +1069,32 @@ export type Database = {
           token: string
         }[]
       }
+      create_invitation: {
+        Args: {
+          _email: string
+          _org: string
+          _role?: Database["public"]["Enums"]["org_role"]
+        }
+        Returns: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          organization_id: string
+          rejected_at: string | null
+          role: Database["public"]["Enums"]["org_role"]
+          token: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organization_invitations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_organization: {
         Args: { _description?: string; _name: string; _slug: string }
         Returns: {
