@@ -30,38 +30,80 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       .maybeSingle();
     const orgName = org?.name ?? "your organization";
 
-    const origin = process.env.APP_URL || process.env.PUBLIC_APP_URL || "";
+    const origin =
+      process.env.APP_URL || process.env.PUBLIC_APP_URL || "https://snuggle-sparkle-net.lovable.app";
     const inviteUrl = `${origin.replace(/\/$/, "")}/join/${data.token}`;
+    const inviter = data.inviterName ?? "A teammate";
 
-    // Try to use the scaffolded transactional email helper. If it isn't
-    // scaffolded yet (no email domain configured), fall back gracefully.
-    try {
-      // Dynamic + computed path so TS doesn't require the module to exist
-      // until the transactional email templates are scaffolded.
-      const modPath = "@/lib/email-templates/send-email";
-      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
-      if (!mod?.sendTemplateEmail) {
-        return { sent: false, reason: "not_configured" };
-      }
-      const result = await mod.sendTemplateEmail("organization-invitation", data.email, {
-        templateData: {
-          organizationName: orgName,
-          inviteUrl,
-          inviterName: data.inviterName ?? "A teammate",
-        },
-        idempotencyKey: `org-invite-${data.token}`,
-      });
-      if (result?.sent) return { sent: true };
-      if (result?.reason === "recipient_suppressed") return { sent: false, reason: "suppressed" };
-      return { sent: false, reason: "failed" };
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
-      if (code === "domain_not_verified" || code === "emails_disabled") {
-        return { sent: false, reason: "not_configured", detail: code };
-      }
-      return { sent: false, reason: "failed", detail: err?.message };
-    }
+    // Send via Resend through the Lovable connector gateway.
+    return await sendViaResend({
+      to: data.email,
+      subject: `You're invited to join ${orgName}`,
+      html: renderInviteHtml({ orgName, inviteUrl, inviter }),
+    });
   });
+
+function renderInviteHtml(opts: { orgName: string; inviteUrl: string; inviter: string }) {
+  const { orgName, inviteUrl, inviter } = opts;
+  return `<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;background:#fff;color:#0f172a;padding:24px">
+    <div style="max-width:560px;margin:0 auto;padding:32px 28px">
+      <h1 style="font-size:22px;margin:0 0 12px">You've been invited to ${escapeHtml(orgName)}</h1>
+      <p style="font-size:15px;line-height:22px;margin:0 0 16px">
+        ${escapeHtml(inviter)} invited you to collaborate in <strong>${escapeHtml(orgName)}</strong> on Multi-tenant SaaS.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${inviteUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px">Accept invitation</a>
+      </p>
+      <p style="font-size:15px;line-height:22px;margin:0 0 16px">Or open this link in your browser:<br/>
+        <a href="${inviteUrl}" style="color:#2563eb;word-break:break-all">${inviteUrl}</a>
+      </p>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+      <p style="font-size:12px;color:#64748b;margin:0 0 6px">This invitation expires in 14 days.</p>
+      <p style="font-size:12px;color:#64748b;margin:0">If you weren't expecting this email, you can safely ignore it.</p>
+    </div>
+  </body></html>`;
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+async function sendViaResend(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  from?: string;
+}): Promise<SendResult> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!lovableKey || !resendKey) {
+    return { sent: false, reason: "not_configured", detail: "Resend connector not linked" };
+  }
+  try {
+    const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": resendKey,
+      },
+      body: JSON.stringify({
+        from: opts.from ?? "Multi-tenant SaaS <onboarding@resend.dev>",
+        to: [opts.to],
+        subject: opts.subject,
+        html: opts.html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[resend] send failed [${res.status}]: ${body}`);
+      return { sent: false, reason: "failed", detail: `${res.status}: ${body.slice(0, 300)}` };
+    }
+    return { sent: true };
+  } catch (err: any) {
+    return { sent: false, reason: "failed", detail: err?.message };
+  }
+}
 
 // Lightweight status probe used by the Members page to show a banner /
 // checklist when invite emails will not actually be delivered.
@@ -69,27 +111,13 @@ export const getInvitationEmailStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const hasLovableKey = !!process.env.LOVABLE_API_KEY;
-    let hasHelper = false;
-    let hasTemplate = false;
-    try {
-      const modPath = "@/lib/email-templates/send-email";
-      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
-      hasHelper = !!mod?.sendTemplateEmail;
-      if (hasHelper) {
-        const regPath = "@/lib/email-templates/registry";
-        const reg: any = await import(/* @vite-ignore */ regPath).catch(() => null);
-        const templates = reg?.TEMPLATES ?? reg?.templates ?? {};
-        hasTemplate = !!templates["organization-invitation"];
-      }
-    } catch {
-      // ignore — treated as not configured
-    }
+    const hasResendKey = !!process.env.RESEND_API_KEY;
     return {
-      configured: hasLovableKey && hasHelper && hasTemplate,
+      configured: hasLovableKey && hasResendKey,
       checks: {
         lovableKey: hasLovableKey,
-        emailHelper: hasHelper,
-        invitationTemplate: hasTemplate,
+        emailHelper: hasResendKey,
+        invitationTemplate: true,
       },
     };
   });
@@ -108,30 +136,15 @@ export const sendTestInvitationEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((v: unknown) => testSchema.parse(v))
   .handler(async ({ data }): Promise<SendResult> => {
-    try {
-      const modPath = "@/lib/email-templates/send-email";
-      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
-      if (!mod?.sendTemplateEmail) {
-        return { sent: false, reason: "not_configured" };
-      }
-      const result = await mod.sendTemplateEmail("organization-invitation", data.email, {
-        templateData: {
-          organizationName: data.organizationName,
-          inviteUrl: data.inviteUrl,
-          inviterName: data.inviterName,
-        },
-        idempotencyKey: `org-invite-test-${data.email}-${Date.now()}`,
-      });
-      if (result?.sent) return { sent: true };
-      if (result?.reason === "recipient_suppressed") return { sent: false, reason: "suppressed" };
-      return { sent: false, reason: "failed" };
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
-      if (code === "domain_not_verified" || code === "emails_disabled") {
-        return { sent: false, reason: "not_configured", detail: code };
-      }
-      return { sent: false, reason: "failed", detail: err?.message };
-    }
+    return await sendViaResend({
+      to: data.email,
+      subject: `You're invited to join ${data.organizationName}`,
+      html: renderInviteHtml({
+        orgName: data.organizationName,
+        inviteUrl: data.inviteUrl,
+        inviter: data.inviterName,
+      }),
+    });
   });
 
 // List recent email delivery events for invitations in a given organization.
