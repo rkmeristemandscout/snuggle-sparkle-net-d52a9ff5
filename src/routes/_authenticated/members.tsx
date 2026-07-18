@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Copy, MoreHorizontal, Search, Trash2, UserPlus,
   UserCheck, UserX, Users, UserRound, MailWarning,
-  MailX, Check, X as XIcon, RefreshCw,
+  MailX, Check, X as XIcon, RefreshCw, Loader2,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInvitationEmailStatus, sendInvitationEmail, sendTestInvitationEmail } from "@/lib/invitations.functions";
@@ -149,6 +149,7 @@ function MembersPage() {
   const [selectedInviteIds, setSelectedInviteIds] = useState<Set<string>>(new Set());
   const [confirmRefreshId, setConfirmRefreshId] = useState<string | null>(null);
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
   const emailStatusQuery = useQuery({
@@ -438,43 +439,67 @@ function MembersPage() {
     mutationFn: async (ids: string[]) => {
       const results: { email: string; url: string }[] = [];
       const failures: string[] = [];
-      for (const id of ids) {
+      setBulkProgress({ done: 0, total: ids.length });
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
         const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
-        if (error) { failures.push(id); continue; }
-        const { data: row } = await supabase
-          .from("organization_invitations")
-          .select("id, email, token")
-          .eq("id", id)
-          .single();
-        if (row?.token) {
-          results.push({
-            email: row.email ?? "",
-            url: `${window.location.origin}/join/${row.token}`,
-          });
-        } else {
+        if (error) {
           failures.push(id);
+        } else {
+          const { data: row } = await supabase
+            .from("organization_invitations")
+            .select("id, email, token")
+            .eq("id", id)
+            .single();
+          if (row?.token) {
+            results.push({
+              email: row.email ?? "",
+              url: `${window.location.origin}/join/${row.token}`,
+            });
+          } else {
+            failures.push(id);
+          }
         }
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
-      return { results, failures };
+      return { results, failures, total: ids.length };
     },
-    onSuccess: async ({ results, failures }) => {
+    onSuccess: async ({ results, failures, total }) => {
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
-      if (results.length === 0) {
-        toast.error("Couldn't refresh selected invitations");
+      const successCount = results.length;
+      const failCount = failures.length;
+      if (successCount === 0) {
+        toast.error(`Bulk refresh failed`, {
+          description: `0 of ${total} regenerated — ${failCount} failed.`,
+        });
+        setBulkProgress(null);
         return;
       }
       const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
+      const summary = `${successCount} of ${total} regenerated${failCount ? `, ${failCount} failed` : ""}.`;
       try {
         await navigator.clipboard.writeText(text);
-        toast.success(`Refreshed ${results.length} invitation${results.length === 1 ? "" : "s"}`, {
-          description: `New links copied to clipboard${failures.length ? ` — ${failures.length} failed` : ""}.`,
-        });
+        if (failCount > 0) {
+          toast.warning(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
+            description: `${summary} New links copied to clipboard.`,
+          });
+        } else {
+          toast.success(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
+            description: `${summary} New links copied to clipboard.`,
+          });
+        }
       } catch {
-        toast.warning("Refreshed, but clipboard blocked", { description: "Copy the links manually from the table." });
+        toast.warning("Refreshed, but clipboard blocked", {
+          description: `${summary} Copy the links manually from the table.`,
+        });
       }
       setSelectedInviteIds(new Set());
+      setBulkProgress(null);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setBulkProgress(null);
+    },
   });
 
 
@@ -617,28 +642,56 @@ function MembersPage() {
         })}
       </div>
 
-      {canManage && selectedCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-          <div className="text-sm">
-            <span className="font-medium">{selectedCount}</span> pending invitation{selectedCount === 1 ? "" : "s"} selected
+      {canManage && (selectedCount > 0 || bulkRefresh.isPending) && (
+        <div className="rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm">
+              {bulkRefresh.isPending && bulkProgress ? (
+                <span>
+                  Regenerating <span className="font-medium">{bulkProgress.done}</span> of{" "}
+                  <span className="font-medium">{bulkProgress.total}</span> invitation
+                  {bulkProgress.total === 1 ? "" : "s"}…
+                </span>
+              ) : (
+                <span>
+                  <span className="font-medium">{selectedCount}</span> pending invitation
+                  {selectedCount === 1 ? "" : "s"} selected
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedInviteIds(new Set())}
+                disabled={bulkRefresh.isPending}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setConfirmBulkOpen(true)}
+                disabled={bulkRefresh.isPending || selectedCount === 0}
+              >
+                {bulkRefresh.isPending ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                )}
+                {bulkRefresh.isPending && bulkProgress
+                  ? `Refreshing ${bulkProgress.done}/${bulkProgress.total}…`
+                  : `Refresh & copy ${selectedCount} link${selectedCount === 1 ? "" : "s"}`}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelectedInviteIds(new Set())}
-            >
-              Clear
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setConfirmBulkOpen(true)}
-              disabled={bulkRefresh.isPending}
-            >
-              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${bulkRefresh.isPending ? "animate-spin" : ""}`} />
-              Refresh &amp; copy {selectedCount} link{selectedCount === 1 ? "" : "s"}
-            </Button>
-          </div>
+          {bulkRefresh.isPending && bulkProgress && bulkProgress.total > 0 && (
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all duration-200"
+                style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
