@@ -35,7 +35,10 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
     // Try to use the scaffolded transactional email helper. If it isn't
     // scaffolded yet (no email domain configured), fall back gracefully.
     try {
-      const mod: any = await import("@/lib/email-templates/send-email").catch(() => null);
+      // Dynamic + computed path so TS doesn't require the module to exist
+      // until the transactional email templates are scaffolded.
+      const modPath = "@/lib/email-templates/send-email";
+      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
       if (!mod?.sendTemplateEmail) {
         return { sent: false, reason: "not_configured" };
       }
