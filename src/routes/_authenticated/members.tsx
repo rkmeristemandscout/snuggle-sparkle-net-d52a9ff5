@@ -617,7 +617,33 @@ function MembersPage() {
         })}
       </div>
 
+      {canManage && selectedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="text-sm">
+            <span className="font-medium">{selectedCount}</span> pending invitation{selectedCount === 1 ? "" : "s"} selected
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedInviteIds(new Set())}
+            >
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setConfirmBulkOpen(true)}
+              disabled={bulkRefresh.isPending}
+            >
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${bulkRefresh.isPending ? "animate-spin" : ""}`} />
+              Refresh &amp; copy {selectedCount} link{selectedCount === 1 ? "" : "s"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border bg-card overflow-x-auto">
+
         <Table>
           <TableHeader>
             <TableRow>
