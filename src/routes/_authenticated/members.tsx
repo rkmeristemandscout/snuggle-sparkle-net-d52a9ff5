@@ -27,6 +27,8 @@ import {
   getInvitationEmailStatus,
   sendInvitationEmail,
   sendTestInvitationEmail,
+  listInvitationEmailLogs,
+  type InvitationEmailLog,
 } from "@/lib/invitations.functions";
 import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
 const OrgInvitationEmail = OrgInvitationTemplate.component;
@@ -680,6 +682,7 @@ function MembersPage() {
       </div>
 
       {canManage && <EmailDeliveryBanner />}
+      {canManage && <EmailLogsPanel orgId={currentOrgId} />}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
@@ -1337,6 +1340,144 @@ function EmailDeliveryBanner() {
     </div>
   );
 }
+
+function EmailLogsPanel({ orgId }: { orgId: string }) {
+  const fetchLogs = useServerFn(listInvitationEmailLogs);
+  const [open, setOpen] = useState(false);
+  const query = useQuery({
+    enabled: open,
+    queryKey: ["members-page", "email-logs", orgId],
+    queryFn: () => fetchLogs({ data: { organizationId: orgId, limit: 100 } }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const fmt = (ts: string) => {
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return ts;
+    }
+  };
+
+  const eventTone = (t: string): string => {
+    if (t === "sent") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+    if (t === "bounced" || t === "rejected" || t === "complained")
+      return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+    if (t === "suppressed" || t === "rate_limited")
+      return "bg-amber-500/15 text-amber-800 dark:text-amber-300";
+    if (t === "unsubscribed") return "bg-slate-500/15 text-slate-700 dark:text-slate-300";
+    return "bg-muted text-muted-foreground";
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <MailWarning className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-semibold">Invitation email delivery logs</p>
+              <p className="text-xs text-muted-foreground">
+                Sent, bounced, rejected, suppressed and rate-limited events for invitation
+                recipients.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {open && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => query.refetch()}
+                disabled={query.isFetching}
+              >
+                {query.isFetching ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Refresh
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+              {open ? "Hide" : "Show"} logs
+            </Button>
+          </div>
+        </div>
+
+        {open && (
+          <div className="mt-4">
+            {query.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading email events…
+              </div>
+            ) : query.data && !query.data.available ? (
+              <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                {query.data.reason === "not_configured"
+                  ? "Email delivery is not configured yet. Once a sender domain is verified, delivery events will appear here."
+                  : `Couldn't load email logs${query.data.detail ? `: ${query.data.detail}` : "."}`}
+              </div>
+            ) : query.data && query.data.available ? (
+              query.data.events.length === 0 ? (
+                <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  No invitation email events yet
+                  {query.data.historyStartsAt
+                    ? ` (history from ${fmt(query.data.historyStartsAt)}).`
+                    : "."}
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>Recipient</TableHead>
+                        <TableHead>Event</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {query.data.events.map((e: InvitationEmailLog, i: number) => (
+                        <TableRow key={`${e.message_id ?? "no-id"}-${i}`}>
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                            {fmt(e.timestamp)}
+                          </TableCell>
+                          <TableCell className="text-xs">{e.recipient}</TableCell>
+                          <TableCell>
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${eventTone(
+                                e.event_type,
+                              )}`}
+                            >
+                              {e.event_type}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {e.status ?? "—"}
+                            {e.message_id ? (
+                              <span
+                                className="ml-2 font-mono text-[10px] opacity-60"
+                                title={e.message_id}
+                              >
+                                {e.message_id.slice(0, 10)}…
+                              </span>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            ) : null}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function InviteDialog({
   open,
