@@ -127,6 +127,29 @@ function MembersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
+  const emailStatusQuery = useQuery({
+    queryKey: ["members-page", "email-status"],
+    queryFn: () => fetchEmailStatus(),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!currentMembership,
+  });
+  const emailConfigured = emailStatusQuery.data?.configured ?? true;
+
+  const copyInviteLink = (token: string) => {
+    const url = `${window.location.origin}/join/${token}`;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Invite link copied", { description: url }),
+      () => toast.error("Couldn't copy — copy manually", { description: url })
+    );
+  };
+  const copyInviteToken = (token: string) => {
+    navigator.clipboard.writeText(token).then(
+      () => toast.success("Invitation token copied"),
+      () => toast.error("Couldn't copy token")
+    );
+  };
+
   const members = useQuery({
     enabled: !!currentOrgId,
     queryKey: ["members-page", "members", currentOrgId],
@@ -507,6 +530,16 @@ function MembersPage() {
                       >
                         {r.status}
                       </Badge>
+                      {r.kind === "invitation" && r.token && !emailConfigured && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2 h-6 px-2 text-xs"
+                          onClick={() => copyInviteLink(r.token!)}
+                        >
+                          <Copy className="mr-1 h-3 w-3" /> Copy link
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.department}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -528,14 +561,14 @@ function MembersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {r.kind === "invitation" && r.token && (
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  navigator.clipboard.writeText(`${window.location.origin}/join/${r.token}`);
-                                  toast.success("Invite link copied");
-                                }}
-                              >
-                                <Copy className="mr-2 h-4 w-4" /> Copy invite link
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => copyInviteLink(r.token!)}>
+                                  <Copy className="mr-2 h-4 w-4" /> Copy invite link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => copyInviteToken(r.token!)}>
+                                  <Copy className="mr-2 h-4 w-4" /> Copy invite token
+                                </DropdownMenuItem>
+                              </>
                             )}
                             {r.kind === "invitation" && (
                               <>
