@@ -1019,9 +1019,56 @@ function MembersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={bulkFailuresOpen} onOpenChange={setBulkFailuresOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {bulkFailures.length} invitation{bulkFailures.length === 1 ? "" : "s"} failed to refresh
+            </DialogTitle>
+            <DialogDescription>
+              The invitations below could not be regenerated. Successful ones were copied to your clipboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[320px] overflow-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bulkFailures.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell className="font-medium">{f.email || "—"}</TableCell>
+                    <TableCell className="text-xs text-destructive">{f.reason}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const txt = bulkFailures.map((f) => `${f.email}\t${f.reason}`).join("\n");
+                navigator.clipboard?.writeText(txt).then(
+                  () => toast.success("Failures copied to clipboard"),
+                  () => toast.error("Couldn't copy failures"),
+                );
+              }}
+            >
+              <Copy className="mr-2 h-4 w-4" /> Copy failures
+            </Button>
+            <Button onClick={() => setBulkFailuresOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
   return (
