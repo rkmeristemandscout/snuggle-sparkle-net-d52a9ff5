@@ -60,6 +60,7 @@ type Row = {
   lastActive: string | null;
   avatarUrl: string | null;
   token?: string | null;
+  expiresAt?: string | null;
 };
 
 type MemberRpcRow = {
