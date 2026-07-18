@@ -244,18 +244,60 @@ function MembersPage() {
       });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
-      return row?.token as string;
+      const token = row?.token as string;
+
+      let emailStatus: "sent" | "not_configured" | "failed" = "not_configured";
+      try {
+        const { sendInvitationEmail } = await import("@/lib/invitations.functions");
+        const res = await sendInvitationEmail({
+          data: {
+            email: v.email,
+            token,
+            organizationId: currentOrgId,
+            inviterName: user.email ?? undefined,
+          },
+        });
+        emailStatus = res?.sent ? "sent" : res?.reason === "not_configured" ? "not_configured" : "failed";
+      } catch {
+        emailStatus = "failed";
+      }
+      return { token, emailStatus };
     },
-    onSuccess: (token) => {
+    onSuccess: ({ token, emailStatus }) => {
       const url = `${window.location.origin}/join/${token}`;
       navigator.clipboard?.writeText(url).catch(() => {});
-      toast.success("Invitation created", {
-        description: "Invite link copied to clipboard. Share it with the invitee — email delivery isn't configured yet.",
-      });
+      if (emailStatus === "sent") {
+        toast.success("Invitation sent", { description: "Email delivered. Link also copied to clipboard." });
+      } else if (emailStatus === "not_configured") {
+        toast.success("Invitation created", {
+          description: "Email delivery isn't configured yet — invite link copied. Set up an email domain to send automatically.",
+        });
+      } else {
+        toast.warning("Invitation created, email failed", {
+          description: "We couldn't send the email. Invite link copied to clipboard — share it manually.",
+        });
+      }
       setInviteOpen(false);
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const msg = e.message || "Failed to create invitation";
+      if (/already a member/i.test(msg)) {
+        toast.error("Already a member", { description: "This person is already part of your organization." });
+      } else if (/active invitation already exists/i.test(msg)) {
+        toast.error("Invitation pending", {
+          description: "An active invitation already exists for this email. Resend or cancel it from the list.",
+        });
+      } else if (/Insufficient permissions/i.test(msg)) {
+        toast.error("Not allowed", { description: "You don't have permission to invite members." });
+      } else if (/Invalid email/i.test(msg)) {
+        toast.error("Invalid email", { description: "Please enter a valid email address." });
+      } else if (/Invalid role/i.test(msg)) {
+        toast.error("Invalid role", { description: "Pick a valid role for this invitation." });
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const updateRole = useMutation({
