@@ -384,9 +384,14 @@ function MembersPage() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" /> Invite Member
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+              <MailWarning className="mr-2 h-4 w-4" /> Preview email
+            </Button>
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" /> Invite Member
+            </Button>
+          </div>
         )}
       </div>
 
