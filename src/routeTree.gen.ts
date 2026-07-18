@@ -30,6 +30,7 @@ import { Route as AuthenticatedAuditLogsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedApiKeysRouteImport } from './routes/_authenticated/api-keys'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTeamsTeamIdRouteImport } from './routes/_authenticated/teams.$teamId'
+import { Route as AuthenticatedSettingsEmailRouteImport } from './routes/_authenticated/settings.email'
 import { Route as AuthenticatedOrganizationsSlugRouteImport } from './routes/_authenticated/organizations.$slug'
 import { Route as AuthenticatedBillingPlansRouteImport } from './routes/_authenticated/billing.plans'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe.webhook'
@@ -146,6 +147,12 @@ const AuthenticatedTeamsTeamIdRoute =
     path: '/$teamId',
     getParentRoute: () => AuthenticatedTeamsRoute,
   } as any)
+const AuthenticatedSettingsEmailRoute =
+  AuthenticatedSettingsEmailRouteImport.update({
+    id: '/settings/email',
+    path: '/settings/email',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOrganizationsSlugRoute =
   AuthenticatedOrganizationsSlugRouteImport.update({
     id: '/$slug',
@@ -203,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/join/$token': typeof JoinTokenRoute
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
@@ -231,6 +239,7 @@ export interface FileRoutesByTo {
   '/join/$token': typeof JoinTokenRoute
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
@@ -261,6 +270,7 @@ export interface FileRoutesById {
   '/join/$token': typeof JoinTokenRoute
   '/_authenticated/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/_authenticated/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/_authenticated/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/_authenticated/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/_authenticated/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/_authenticated/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/join/$token'
     | '/billing/plans'
     | '/organizations/$slug'
+    | '/settings/email'
     | '/teams/$teamId'
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/join/$token'
     | '/billing/plans'
     | '/organizations/$slug'
+    | '/settings/email'
     | '/teams/$teamId'
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
@@ -348,6 +360,7 @@ export interface FileRouteTypes {
     | '/join/$token'
     | '/_authenticated/billing/plans'
     | '/_authenticated/organizations/$slug'
+    | '/_authenticated/settings/email'
     | '/_authenticated/teams/$teamId'
     | '/_authenticated/organizations/$slug/members'
     | '/_authenticated/organizations/$slug/settings'
@@ -513,6 +526,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamsTeamIdRouteImport
       parentRoute: typeof AuthenticatedTeamsRoute
     }
+    '/_authenticated/settings/email': {
+      id: '/_authenticated/settings/email'
+      path: '/settings/email'
+      fullPath: '/settings/email'
+      preLoaderRoute: typeof AuthenticatedSettingsEmailRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/organizations/$slug': {
       id: '/_authenticated/organizations/$slug'
       path: '/$slug'
@@ -627,6 +647,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRolesRoute: typeof AuthenticatedRolesRoute
   AuthenticatedTeamsRoute: typeof AuthenticatedTeamsRouteWithChildren
+  AuthenticatedSettingsEmailRoute: typeof AuthenticatedSettingsEmailRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -643,6 +664,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRolesRoute: AuthenticatedRolesRoute,
   AuthenticatedTeamsRoute: AuthenticatedTeamsRouteWithChildren,
+  AuthenticatedSettingsEmailRoute: AuthenticatedSettingsEmailRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

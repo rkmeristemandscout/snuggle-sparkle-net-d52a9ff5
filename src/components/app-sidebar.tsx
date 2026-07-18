@@ -65,6 +65,7 @@ export function AppSidebar() {
     },
     { to: "/admin", label: "Admin Console", icon: Shield, show: isSuperAdmin },
     { to: "/profile", label: "Profile", icon: UserCircle, show: true },
+    { to: "/settings/email", label: "Email Settings", icon: Mail, show: true },
   ].filter((i) => i.show);
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
