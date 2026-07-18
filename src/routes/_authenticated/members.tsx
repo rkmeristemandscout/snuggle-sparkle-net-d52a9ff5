@@ -647,6 +647,16 @@ function MembersPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              {canManage && (
+                <TableHead className="w-[36px]">
+                  <Checkbox
+                    aria-label="Select all pending invitations"
+                    checked={allPendingSelected}
+                    onCheckedChange={(v) => toggleSelectAllPending(!!v)}
+                    disabled={pendingInviteRows.length === 0}
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-[60px]"></TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Email</TableHead>
