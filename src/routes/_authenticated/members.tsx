@@ -365,14 +365,50 @@ function MembersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const sendInvite = useServerFn(
+    // Lazy ref so we don't add another top-level import churn.
+    (await import("@/lib/invitations.functions")).sendInvitationEmail
+  );
   const resend = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
       if (error) throw error;
+      // Fetch the refreshed token/email/expiry after regeneration.
+      const { data: row, error: fetchErr } = await supabase
+        .from("organization_invitations")
+        .select("id, email, token, expires_at")
+        .eq("id", id)
+        .single();
+      if (fetchErr) throw fetchErr;
+      return row;
     },
-    onSuccess: () => {
-      toast.success("Invitation resent");
+    onSuccess: async (row) => {
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
+      if (!row?.token) {
+        toast.success("Invitation refreshed");
+        return;
+      }
+      if (emailConfigured && row.email && currentOrgId) {
+        try {
+          const result = await sendInvite({
+            data: {
+              email: row.email,
+              token: row.token,
+              organizationId: currentOrgId,
+              inviterName: user?.email ?? undefined,
+            },
+          });
+          if (result?.sent) {
+            toast.success("Invitation email resent", { description: row.email });
+            return;
+          }
+          // Fall through to clipboard fallback on any non-sent result.
+        } catch {
+          // network / server error — fall back to link copy
+        }
+      }
+      // Not configured (or send failed) → refresh link and copy it.
+      copyInviteLink(row.token);
     },
     onError: (e: Error) => toast.error(e.message),
   });
