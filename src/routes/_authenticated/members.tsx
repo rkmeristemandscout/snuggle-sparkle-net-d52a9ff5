@@ -505,6 +505,8 @@ function MembersPage() {
           description: `0 of ${total} regenerated — ${failCount} failed.`,
         });
         setBulkProgress(null);
+        // auto-clear per-invitation badges so the table returns to normal
+        window.setTimeout(() => setBulkStatuses({}), 2500);
         return;
       }
       const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
@@ -527,15 +529,16 @@ function MembersPage() {
       }
       setSelectedInviteIds(new Set());
       setBulkProgress(null);
-      // keep bulkStatuses briefly so users can see final states, then clear
-      window.setTimeout(() => setBulkStatuses({}), 4000);
+      // auto-clear per-invitation badges so the table returns to normal
+      window.setTimeout(() => setBulkStatuses({}), 2500);
     },
     onError: (e: Error) => {
       toast.error(e.message);
       setBulkProgress(null);
-      setBulkStatuses({});
+      window.setTimeout(() => setBulkStatuses({}), 2500);
     },
   });
+
 
 
 
@@ -835,30 +838,42 @@ function MembersPage() {
                           </span>
                         );
                       })()}
-                      {r.kind === "invitation" && r.token && !emailConfigured && (
-                        <div className="mt-1 inline-flex flex-wrap items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => copyInviteLink(r.token!)}
-                            disabled={bulkRefresh.isPending}
-                          >
-                            <Copy className="mr-1 h-3 w-3" /> Copy link
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => setConfirmRefreshId(r.id)}
-                            disabled={resend.isPending || bulkRefresh.isPending}
-                            title="Regenerate token and copy the new link"
-                          >
-                            <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
-                            Refresh
-                          </Button>
-                        </div>
-                      )}
+                      {r.kind === "invitation" && r.token && !emailConfigured && (() => {
+                        const bs = bulkStatuses[r.id];
+                        // Only allow copy when there's no in-flight status, or the last status is 'success'
+                        const copyBlocked = !!bs && bs !== "success";
+                        const copyTitle = copyBlocked
+                          ? bs === "failed"
+                            ? "Regeneration failed — refresh again before copying"
+                            : "Waiting for regeneration to complete"
+                          : "Copy invite link";
+                        return (
+                          <div className="mt-1 inline-flex flex-wrap items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyInviteLink(r.token!)}
+                              disabled={bulkRefresh.isPending || copyBlocked}
+                              title={copyTitle}
+                            >
+                              <Copy className="mr-1 h-3 w-3" /> Copy link
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRefreshId(r.id)}
+                              disabled={resend.isPending || bulkRefresh.isPending}
+                              title="Regenerate token and copy the new link"
+                            >
+                              <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
+                              Refresh
+                            </Button>
+                          </div>
+                        );
+                      })()}
+
                       {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
                         const t = timeUntil(r.expiresAt);
                         return (
@@ -1048,7 +1063,7 @@ function MembersPage() {
               </TableBody>
             </Table>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -1061,8 +1076,49 @@ function MembersPage() {
             >
               <Copy className="mr-2 h-4 w-4" /> Copy failures
             </Button>
-            <Button onClick={() => setBulkFailuresOpen(false)}>Close</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const escape = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
+                const header = "email,reason\n";
+                const body = bulkFailures
+                  .map((f) => `${escape(f.email)},${escape(f.reason)}`)
+                  .join("\n");
+                const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                a.href = url;
+                a.download = `failed-invitations-${ts}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast.success("CSV downloaded");
+              }}
+              disabled={bulkFailures.length === 0}
+            >
+              Download CSV
+            </Button>
+            <Button
+              onClick={() => {
+                const ids = bulkFailures.map((f) => f.id);
+                if (ids.length === 0) return;
+                setBulkFailuresOpen(false);
+                bulkRefresh.mutate(ids);
+              }}
+              disabled={bulkRefresh.isPending || bulkFailures.length === 0}
+            >
+              {bulkRefresh.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Retry failed ({bulkFailures.length})
+            </Button>
+            <Button variant="ghost" onClick={() => setBulkFailuresOpen(false)}>Close</Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </div>
