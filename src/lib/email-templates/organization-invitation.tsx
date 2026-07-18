@@ -34,24 +34,22 @@ export interface OrganizationInvitationProps {
 // installed, otherwise fall back to plain intrinsic elements so the file
 // still compiles and previews structurally.
 
-let RE: any = {};
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  RE = require("@react-email/components");
-} catch {
-  RE = {};
-}
-const Html = RE.Html ?? ((p: any) => <html {...p} />);
-const Head = RE.Head ?? ((p: any) => <head {...p} />);
-const Body = RE.Body ?? ((p: any) => <body {...p} />);
-const Container = RE.Container ?? ((p: any) => <div {...p} />);
-const Heading = RE.Heading ?? ((p: any) => <h1 {...p} />);
-const Text = RE.Text ?? ((p: any) => <p {...p} />);
-const Button = RE.Button ?? ((p: any) => <a {...p} />);
-const Preview = RE.Preview ?? ((p: any) => <span {...p} />);
-const Section = RE.Section ?? ((p: any) => <section {...p} />);
-const Hr = RE.Hr ?? ((p: any) => <hr {...p} />);
-const Link = RE.Link ?? ((p: any) => <a {...p} />);
+// NOTE: `@react-email/components` is intentionally NOT imported here. Doing
+// so (via static import or CJS `require`) crashes the browser bundle when the
+// package isn't installed, which takes the entire Members page down. Once the
+// transactional email infrastructure is scaffolded, swap these fallbacks for
+// real React Email components.
+const Html = (p: any) => <html {...p} />;
+const Head = (p: any) => <head {...p} />;
+const Body = (p: any) => <body {...p} />;
+const Container = (p: any) => <div {...p} />;
+const Heading = (p: any) => <h1 {...p} />;
+const Text = (p: any) => <p {...p} />;
+const Button = (p: any) => <a {...p} />;
+const Preview = (p: any) => <span {...p} />;
+const Section = (p: any) => <section {...p} />;
+const Hr = (p: any) => <hr {...p} />;
+const Link = (p: any) => <a {...p} />;
 
 const main = {
   backgroundColor: "#ffffff",
