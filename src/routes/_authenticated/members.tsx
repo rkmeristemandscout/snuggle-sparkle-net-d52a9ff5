@@ -60,6 +60,7 @@ type Row = {
   lastActive: string | null;
   avatarUrl: string | null;
   token?: string | null;
+  expiresAt?: string | null;
 };
 
 type MemberRpcRow = {
@@ -108,6 +109,20 @@ function timeAgo(iso: string | null) {
   if (d < 30) return `${d}d ago`;
   return new Date(iso).toLocaleDateString();
 }
+
+function timeUntil(iso: string | null | undefined): { label: string; expired: boolean } {
+  if (!iso) return { label: "", expired: false };
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return { label: "Expired", expired: true };
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return { label: `${m}m left`, expired: false };
+  const h = Math.floor(m / 60);
+  if (h < 24) return { label: `${h}h left`, expired: false };
+  const d = Math.floor(h / 24);
+  return { label: `${d}d left`, expired: false };
+}
+
+
 
 function MembersPage() {
   const { user } = useSession();
@@ -233,6 +248,7 @@ function MembersPage() {
         lastActive: null,
         avatarUrl: null,
         token: i.token,
+        expiresAt: i.expires_at,
       };
     });
     return [...memberRows, ...inviteRows];
@@ -573,6 +589,17 @@ function MembersPage() {
                           <Copy className="mr-1 h-3 w-3" /> Copy link
                         </Button>
                       )}
+                      {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
+                        const t = timeUntil(r.expiresAt);
+                        return (
+                          <div
+                            className={`mt-1 text-[11px] ${t.expired ? "text-destructive" : "text-muted-foreground"}`}
+                            title={`Expires ${new Date(r.expiresAt).toLocaleString()}`}
+                          >
+                            {t.expired ? "Link expired" : `Link ${t.label}`}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.department}</TableCell>
                     <TableCell className="text-muted-foreground">
