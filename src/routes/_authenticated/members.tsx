@@ -33,6 +33,11 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -141,6 +146,9 @@ function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedInviteIds, setSelectedInviteIds] = useState<Set<string>>(new Set());
+  const [confirmRefreshId, setConfirmRefreshId] = useState<string | null>(null);
+  const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
   const emailStatusQuery = useQuery({
@@ -410,7 +418,7 @@ function MembersPage() {
               organizationId: currentOrgId,
               inviterName: user?.email ?? undefined,
             },
-          });
+        });
           if (result?.sent) {
             toast.success("Invitation email resent", { description: row.email });
             return;
@@ -425,6 +433,50 @@ function MembersPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const bulkRefresh = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results: { email: string; url: string }[] = [];
+      const failures: string[] = [];
+      for (const id of ids) {
+        const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
+        if (error) { failures.push(id); continue; }
+        const { data: row } = await supabase
+          .from("organization_invitations")
+          .select("id, email, token")
+          .eq("id", id)
+          .single();
+        if (row?.token) {
+          results.push({
+            email: row.email ?? "",
+            url: `${window.location.origin}/join/${row.token}`,
+          });
+        } else {
+          failures.push(id);
+        }
+      }
+      return { results, failures };
+    },
+    onSuccess: async ({ results, failures }) => {
+      qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
+      if (results.length === 0) {
+        toast.error("Couldn't refresh selected invitations");
+        return;
+      }
+      const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success(`Refreshed ${results.length} invitation${results.length === 1 ? "" : "s"}`, {
+          description: `New links copied to clipboard${failures.length ? ` — ${failures.length} failed` : ""}.`,
+        });
+      } catch {
+        toast.warning("Refreshed, but clipboard blocked", { description: "Copy the links manually from the table." });
+      }
+      setSelectedInviteIds(new Set());
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const cancelInvite = useMutation({
     mutationFn: async (id: string) => {
@@ -448,6 +500,24 @@ function MembersPage() {
       </div>
     );
   }
+
+  const pendingInviteRows = filtered.filter(
+    (r) => r.kind === "invitation" && r.status === "pending" && r.token,
+  );
+  const selectedCount = pendingInviteRows.filter((r) => selectedInviteIds.has(r.id)).length;
+  const allPendingSelected = pendingInviteRows.length > 0 && selectedCount === pendingInviteRows.length;
+  const toggleSelect = (id: string, on: boolean) => {
+    setSelectedInviteIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const toggleSelectAllPending = (on: boolean) => {
+    setSelectedInviteIds(on ? new Set(pendingInviteRows.map((r) => r.id)) : new Set());
+  };
+
+
 
   return (
     <div className="space-y-6">
@@ -547,10 +617,46 @@ function MembersPage() {
         })}
       </div>
 
+      {canManage && selectedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="text-sm">
+            <span className="font-medium">{selectedCount}</span> pending invitation{selectedCount === 1 ? "" : "s"} selected
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedInviteIds(new Set())}
+            >
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setConfirmBulkOpen(true)}
+              disabled={bulkRefresh.isPending}
+            >
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${bulkRefresh.isPending ? "animate-spin" : ""}`} />
+              Refresh &amp; copy {selectedCount} link{selectedCount === 1 ? "" : "s"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border bg-card overflow-x-auto">
+
         <Table>
           <TableHeader>
             <TableRow>
+              {canManage && (
+                <TableHead className="w-[36px]">
+                  <Checkbox
+                    aria-label="Select all pending invitations"
+                    checked={allPendingSelected}
+                    onCheckedChange={(v) => toggleSelectAllPending(!!v)}
+                    disabled={pendingInviteRows.length === 0}
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-[60px]"></TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Email</TableHead>
@@ -565,14 +671,26 @@ function MembersPage() {
           </TableHeader>
           <TableBody>
             {members.isLoading || (canManage && invites.isLoading) ? (
-              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
             ) : (
               filtered.map((r) => {
                 const isSelf = r.userId && r.userId === user?.id;
+                const selectable = r.kind === "invitation" && r.status === "pending" && !!r.token;
                 return (
-                  <TableRow key={r.key}>
+                  <TableRow key={r.key} data-state={selectedInviteIds.has(r.id) ? "selected" : undefined}>
+                    {canManage && (
+                      <TableCell>
+                        {selectable ? (
+                          <Checkbox
+                            aria-label={`Select invitation ${r.email}`}
+                            checked={selectedInviteIds.has(r.id)}
+                            onCheckedChange={(v) => toggleSelect(r.id, !!v)}
+                          />
+                        ) : null}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Avatar className="h-8 w-8">
                         {r.avatarUrl && <AvatarImage src={r.avatarUrl} alt="" />}
@@ -625,7 +743,7 @@ function MembersPage() {
                             size="sm"
                             variant="outline"
                             className="h-6 px-2 text-xs"
-                            onClick={() => resend.mutate(r.id)}
+                            onClick={() => setConfirmRefreshId(r.id)}
                             disabled={resend.isPending}
                             title="Regenerate token and copy the new link"
                           >
@@ -735,6 +853,65 @@ function MembersPage() {
         defaultInviterName={(user?.user_metadata?.full_name as string | undefined) ?? "Jane Doe"}
         emailConfigured={emailConfigured}
       />
+
+      <AlertDialog
+        open={confirmRefreshId !== null}
+        onOpenChange={(v) => { if (!v) setConfirmRefreshId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate invitation link?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This immediately invalidates the current invite link and issues a new
+              one with a fresh expiration. Anyone holding the old link will no
+              longer be able to use it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRefreshId) resend.mutate(confirmRefreshId);
+                setConfirmRefreshId(null);
+              }}
+            >
+              Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmBulkOpen}
+        onOpenChange={setConfirmBulkOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Refresh {selectedCount} invitation{selectedCount === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each selected invitation gets a brand-new token and expiration.
+              Previously shared links stop working. The new links are copied
+              to your clipboard as a list you can paste into any tool.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const ids = pendingInviteRows
+                  .filter((r) => selectedInviteIds.has(r.id))
+                  .map((r) => r.id);
+                if (ids.length) bulkRefresh.mutate(ids);
+                setConfirmBulkOpen(false);
+              }}
+            >
+              Regenerate &amp; copy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
