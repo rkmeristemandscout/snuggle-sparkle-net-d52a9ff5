@@ -628,6 +628,7 @@ function MembersPage() {
         onOpenChange={setPreviewOpen}
         defaultOrgName={currentMembership?.organization.name ?? "Acme Inc."}
         defaultInviterName={(user?.user_metadata?.full_name as string | undefined) ?? "Jane Doe"}
+        emailConfigured={emailConfigured}
       />
     </div>
   );
