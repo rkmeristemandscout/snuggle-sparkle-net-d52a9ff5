@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInvitationEmailStatus } from "@/lib/invitations.functions";
+import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
+const OrgInvitationEmail = OrgInvitationTemplate.component;
 
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentOrg, type OrgRole } from "@/hooks/use-current-org";
