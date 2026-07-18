@@ -592,7 +592,7 @@ function MembersPage() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         defaultOrgName={currentMembership?.organization.name ?? "Acme Inc."}
-        defaultInviterName={session?.user?.user_metadata?.full_name ?? "Jane Doe"}
+        defaultInviterName={(user?.user_metadata?.full_name as string | undefined) ?? "Jane Doe"}
       />
     </div>
   );
