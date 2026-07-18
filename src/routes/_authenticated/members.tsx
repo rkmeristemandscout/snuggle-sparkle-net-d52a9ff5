@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Copy, MoreHorizontal, Search, Trash2, UserPlus,
   UserCheck, UserX, Users, UserRound, MailWarning,
-  MailX, Check, X as XIcon,
+  MailX, Check, X as XIcon, RefreshCw,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInvitationEmailStatus, sendInvitationEmail, sendTestInvitationEmail } from "@/lib/invitations.functions";
@@ -515,6 +515,38 @@ function MembersPage() {
         </Select>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground mr-1">Quick filter:</span>
+        {([
+          { key: "all", label: "All" },
+          { key: "active", label: "Active" },
+          { key: "pending", label: "Pending" },
+          { key: "expired", label: "Expired" },
+          { key: "rejected", label: "Rejected" },
+        ] as const).map((f) => {
+          const count =
+            f.key === "all"
+              ? rows.length
+              : rows.filter((r) => r.status === f.key).length;
+          const active = statusFilter === f.key;
+          return (
+            <Button
+              key={f.key}
+              type="button"
+              size="sm"
+              variant={active ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setStatusFilter(f.key)}
+            >
+              {f.label}
+              <span className={`ml-1.5 rounded px-1 text-[10px] ${active ? "bg-primary-foreground/20" : "bg-muted"}`}>
+                {count}
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+
       <div className="rounded-xl border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
@@ -580,14 +612,27 @@ function MembersPage() {
                         {r.status}
                       </Badge>
                       {r.kind === "invitation" && r.token && !emailConfigured && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="ml-2 h-6 px-2 text-xs"
-                          onClick={() => copyInviteLink(r.token!)}
-                        >
-                          <Copy className="mr-1 h-3 w-3" /> Copy link
-                        </Button>
+                        <div className="mt-1 inline-flex flex-wrap items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => copyInviteLink(r.token!)}
+                          >
+                            <Copy className="mr-1 h-3 w-3" /> Copy link
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => resend.mutate(r.id)}
+                            disabled={resend.isPending}
+                            title="Regenerate token and copy the new link"
+                          >
+                            <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
+                            Refresh
+                          </Button>
+                        </div>
                       )}
                       {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
                         const t = timeUntil(r.expiresAt);
