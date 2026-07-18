@@ -110,6 +110,17 @@ function timeAgo(iso: string | null) {
   return new Date(iso).toLocaleDateString();
 }
 
+function timeUntil(iso: string | null | undefined): { label: string; expired: boolean } {
+  if (!iso) return { label: "", expired: false };
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return { label: "Expired", expired: true };
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return { label: `${m}m left`, expired: false };
+  const h = Math.floor(m / 60);
+  if (h < 24) return { label: `${h}h left`, expired: false };
+  const d = Math.floor(h / 24);
+  return { label: `${d}d left`, expired: false };
+
 function MembersPage() {
   const { user } = useSession();
   const { currentOrgId, currentMembership } = useCurrentOrg();
