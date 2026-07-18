@@ -111,27 +111,13 @@ export const getInvitationEmailStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const hasLovableKey = !!process.env.LOVABLE_API_KEY;
-    let hasHelper = false;
-    let hasTemplate = false;
-    try {
-      const modPath = "@/lib/email-templates/send-email";
-      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
-      hasHelper = !!mod?.sendTemplateEmail;
-      if (hasHelper) {
-        const regPath = "@/lib/email-templates/registry";
-        const reg: any = await import(/* @vite-ignore */ regPath).catch(() => null);
-        const templates = reg?.TEMPLATES ?? reg?.templates ?? {};
-        hasTemplate = !!templates["organization-invitation"];
-      }
-    } catch {
-      // ignore — treated as not configured
-    }
+    const hasResendKey = !!process.env.RESEND_API_KEY;
     return {
-      configured: hasLovableKey && hasHelper && hasTemplate,
+      configured: hasLovableKey && hasResendKey,
       checks: {
         lovableKey: hasLovableKey,
-        emailHelper: hasHelper,
-        invitationTemplate: hasTemplate,
+        emailHelper: hasResendKey,
+        invitationTemplate: true,
       },
     };
   });
