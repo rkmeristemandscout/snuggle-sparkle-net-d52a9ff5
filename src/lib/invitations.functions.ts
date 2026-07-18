@@ -92,3 +92,43 @@ export const getInvitationEmailStatus = createServerFn({ method: "GET" })
       },
     };
   });
+
+// Send a rendered invitation email to an arbitrary test address so admins
+// can verify subject, preview text, and CTA styling in a real inbox before
+// inviting a teammate. Uses the same template + helper as real invites.
+const testSchema = z.object({
+  email: z.string().email(),
+  organizationName: z.string().min(1).max(200),
+  inviterName: z.string().min(1).max(200),
+  inviteUrl: z.string().url(),
+});
+
+export const sendTestInvitationEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((v: unknown) => testSchema.parse(v))
+  .handler(async ({ data }): Promise<SendResult> => {
+    try {
+      const modPath = "@/lib/email-templates/send-email";
+      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
+      if (!mod?.sendTemplateEmail) {
+        return { sent: false, reason: "not_configured" };
+      }
+      const result = await mod.sendTemplateEmail("organization-invitation", data.email, {
+        templateData: {
+          organizationName: data.organizationName,
+          inviteUrl: data.inviteUrl,
+          inviterName: data.inviterName,
+        },
+        idempotencyKey: `org-invite-test-${data.email}-${Date.now()}`,
+      });
+      if (result?.sent) return { sent: true };
+      if (result?.reason === "recipient_suppressed") return { sent: false, reason: "suppressed" };
+      return { sent: false, reason: "failed" };
+    } catch (err: any) {
+      const code = err?.code as string | undefined;
+      if (code === "domain_not_verified" || code === "emails_disabled") {
+        return { sent: false, reason: "not_configured", detail: code };
+      }
+      return { sent: false, reason: "failed", detail: err?.message };
+    }
+  });
