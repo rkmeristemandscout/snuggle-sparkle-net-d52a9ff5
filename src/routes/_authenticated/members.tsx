@@ -776,6 +776,7 @@ function MembersPage() {
                             aria-label={`Select invitation ${r.email}`}
                             checked={selectedInviteIds.has(r.id)}
                             onCheckedChange={(v) => toggleSelect(r.id, !!v)}
+                            disabled={bulkRefresh.isPending}
                           />
                         ) : null}
                       </TableCell>
