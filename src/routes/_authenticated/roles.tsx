@@ -118,18 +118,32 @@ function RolesPage() {
 
   const grant = useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
-      const { error } = await supabase.from("user_roles").insert({
-        user_id: userId,
-        role_id: roleId,
-        organization_id: currentOrgId,
-      });
+      // Idempotent: matches the unique constraint on
+      // (user_id, role_id, organization_id) so re-granting the same role
+      // is a no-op instead of a 409 Conflict.
+      const { error } = await supabase.from("user_roles").upsert(
+        {
+          user_id: userId,
+          role_id: roleId,
+          organization_id: currentOrgId,
+        },
+        { onConflict: "user_id,role_id,organization_id", ignoreDuplicates: true },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Role granted");
       qc.invalidateQueries({ queryKey: ["role-assignments", currentOrgId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error & { code?: string }) => {
+      if (e.code === "23505" || /duplicate key/i.test(e.message)) {
+        toast.info("Role already granted", {
+          description: "This user already has that role in this organization.",
+        });
+        return;
+      }
+      toast.error(e.message);
+    },
   });
 
   const revoke = useMutation({
