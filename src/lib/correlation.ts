@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 // Request correlation ID helpers (server + client friendly names, no server-only imports).
 export function newRequestId(): string {
   // 128-bit hex; works in Worker (crypto.randomUUID) and Node

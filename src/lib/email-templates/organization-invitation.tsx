@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Organization invitation email template.
 //
 // This file is the source of truth for the "organization-invitation"

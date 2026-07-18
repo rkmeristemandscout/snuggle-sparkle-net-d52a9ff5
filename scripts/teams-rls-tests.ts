@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Teams + Departments RLS regression / e2e tests.
  * Run: bun run scripts/teams-rls-tests.ts
