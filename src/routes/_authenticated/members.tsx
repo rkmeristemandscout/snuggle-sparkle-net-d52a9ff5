@@ -505,6 +505,8 @@ function MembersPage() {
           description: `0 of ${total} regenerated — ${failCount} failed.`,
         });
         setBulkProgress(null);
+        // auto-clear per-invitation badges so the table returns to normal
+        window.setTimeout(() => setBulkStatuses({}), 2500);
         return;
       }
       const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
@@ -527,15 +529,16 @@ function MembersPage() {
       }
       setSelectedInviteIds(new Set());
       setBulkProgress(null);
-      // keep bulkStatuses briefly so users can see final states, then clear
-      window.setTimeout(() => setBulkStatuses({}), 4000);
+      // auto-clear per-invitation badges so the table returns to normal
+      window.setTimeout(() => setBulkStatuses({}), 2500);
     },
     onError: (e: Error) => {
       toast.error(e.message);
       setBulkProgress(null);
-      setBulkStatuses({});
+      window.setTimeout(() => setBulkStatuses({}), 2500);
     },
   });
+
 
 
 
