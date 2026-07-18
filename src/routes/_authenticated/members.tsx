@@ -743,7 +743,7 @@ function MembersPage() {
                             size="sm"
                             variant="outline"
                             className="h-6 px-2 text-xs"
-                            onClick={() => resend.mutate(r.id)}
+                            onClick={() => setConfirmRefreshId(r.id)}
                             disabled={resend.isPending}
                             title="Regenerate token and copy the new link"
                           >
