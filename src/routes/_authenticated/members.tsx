@@ -1476,6 +1476,7 @@ function EmailLogsPanel({ orgId }: { orgId: string }) {
       </CardContent>
     </Card>
   );
+}
 
 
 function InviteDialog({
