@@ -146,6 +146,9 @@ function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedInviteIds, setSelectedInviteIds] = useState<Set<string>>(new Set());
+  const [confirmRefreshId, setConfirmRefreshId] = useState<string | null>(null);
+  const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
   const emailStatusQuery = useQuery({
