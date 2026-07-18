@@ -589,6 +589,17 @@ function MembersPage() {
                           <Copy className="mr-1 h-3 w-3" /> Copy link
                         </Button>
                       )}
+                      {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
+                        const t = timeUntil(r.expiresAt);
+                        return (
+                          <div
+                            className={`mt-1 text-[11px] ${t.expired ? "text-destructive" : "text-muted-foreground"}`}
+                            title={`Expires ${new Date(r.expiresAt).toLocaleString()}`}
+                          >
+                            {t.expired ? "Link expired" : `Link ${t.label}`}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.department}</TableCell>
                     <TableCell className="text-muted-foreground">
