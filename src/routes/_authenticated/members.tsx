@@ -601,17 +601,22 @@ function MembersPage() {
         window.setTimeout(() => setBulkStatuses({}), 2500);
         return;
       }
+      const emailedCount = results.filter((r) => r.emailed).length;
       const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
-      const summary = `${successCount} of ${total} regenerated${failCount ? `, ${failCount} failed` : ""}.`;
+      const summary = `${successCount} of ${total} regenerated${emailedCount ? `, ${emailedCount} emailed` : ""}${failCount ? `, ${failCount} failed` : ""}.`;
       try {
         await navigator.clipboard.writeText(text);
+        const desc =
+          emailedCount === successCount
+            ? `${summary} New links also copied to clipboard.`
+            : `${summary} New links copied to clipboard.`;
         if (failCount > 0) {
           toast.warning(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
-            description: `${summary} New links copied to clipboard.`,
+            description: desc,
           });
         } else {
           toast.success(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
-            description: `${summary} New links copied to clipboard.`,
+            description: desc,
           });
         }
       } catch {
@@ -619,6 +624,7 @@ function MembersPage() {
           description: `${summary} Copy the links manually from the table.`,
         });
       }
+
       setSelectedInviteIds(new Set());
       setBulkProgress(null);
       // auto-clear per-invitation badges so the table returns to normal
