@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Building2, Users, Boxes, Mail, ShieldCheck, UserCircle,
-  KeyRound, ScrollText, Flag, Shield, CreditCard,
+  KeyRound, ScrollText, Flag, Shield, CreditCard, UsersRound,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
