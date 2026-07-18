@@ -227,3 +227,69 @@ export const listInvitationEmailLogs = createServerFn({ method: "POST" })
     }
   });
 
+
+// Detailed Resend configuration probe for the Email Settings page.
+// Reports whether the API key + Lovable gateway key are present, what
+// From address will be used, and (if reachable) the list of verified
+// sender domains reported by the Resend API.
+export type ResendConfigStatus = {
+  configured: boolean;
+  hasResendKey: boolean;
+  hasLovableKey: boolean;
+  fromEmail: string;
+  fromEmailSource: "env" | "default";
+  domains:
+    | { available: true; items: { name: string; status: string; region?: string | null }[] }
+    | { available: false; reason: string };
+};
+
+export const getResendConfigStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async (): Promise<ResendConfigStatus> => {
+    const hasLovableKey = !!process.env.LOVABLE_API_KEY;
+    const hasResendKey = !!process.env.RESEND_API_KEY;
+    const fromEmail =
+      process.env.RESEND_FROM_EMAIL ?? "Multi-tenant SaaS <onboarding@resend.dev>";
+    const fromEmailSource: "env" | "default" = process.env.RESEND_FROM_EMAIL ? "env" : "default";
+
+    let domains: ResendConfigStatus["domains"] = {
+      available: false,
+      reason: "resend_key_missing",
+    };
+    if (hasLovableKey && hasResendKey) {
+      try {
+        const res = await fetch("https://connector-gateway.lovable.dev/resend/domains", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${process.env.LOVABLE_API_KEY}`,
+            "X-Connection-Api-Key": process.env.RESEND_API_KEY!,
+          },
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { data?: { name: string; status: string; region?: string }[] };
+          domains = {
+            available: true,
+            items: (body.data ?? []).map((d) => ({
+              name: d.name,
+              status: d.status,
+              region: d.region ?? null,
+            })),
+          };
+        } else {
+          const text = await res.text();
+          domains = { available: false, reason: `${res.status}: ${text.slice(0, 200)}` };
+        }
+      } catch (err: any) {
+        domains = { available: false, reason: err?.message ?? "network_error" };
+      }
+    }
+
+    return {
+      configured: hasLovableKey && hasResendKey,
+      hasResendKey,
+      hasLovableKey,
+      fromEmail,
+      fromEmailSource,
+      domains,
+    };
+  });
