@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Copy, MoreHorizontal, Search, Trash2, UserPlus,
   UserCheck, UserX, Users, UserRound, MailWarning,
-  MailX, Check, X as XIcon,
+  MailX, Check, X as XIcon, RefreshCw,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInvitationEmailStatus, sendInvitationEmail, sendTestInvitationEmail } from "@/lib/invitations.functions";
