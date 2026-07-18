@@ -6,12 +6,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  Copy, MoreHorizontal, Search, Trash2, UserPlus,
-  UserCheck, UserX, Users, UserRound, MailWarning,
-  MailX, Check, X as XIcon, RefreshCw, Loader2,
+  Copy,
+  MoreHorizontal,
+  Search,
+  Trash2,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Users,
+  UserRound,
+  MailWarning,
+  MailX,
+  Check,
+  X as XIcon,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { getInvitationEmailStatus, sendInvitationEmail, sendTestInvitationEmail } from "@/lib/invitations.functions";
+import {
+  getInvitationEmailStatus,
+  sendInvitationEmail,
+  sendTestInvitationEmail,
+} from "@/lib/invitations.functions";
 import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
 const OrgInvitationEmail = OrgInvitationTemplate.component;
 
@@ -27,21 +43,45 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/members")({
@@ -99,7 +139,12 @@ type InviteFormValues = z.infer<typeof inviteSchema>;
 
 function initials(name: string, email: string) {
   const src = name?.trim() || email || "?";
-  return src.split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+  return src
+    .split(/\s+/)
+    .map((s) => s[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 function timeAgo(iso: string | null) {
@@ -127,8 +172,6 @@ function timeUntil(iso: string | null | undefined): { label: string; expired: bo
   return { label: `${d}d left`, expired: false };
 }
 
-
-
 function MembersPage() {
   const { user } = useSession();
   const { currentOrgId, currentMembership } = useCurrentOrg();
@@ -153,9 +196,9 @@ function MembersPage() {
   const [bulkStatuses, setBulkStatuses] = useState<
     Record<string, "queued" | "regenerating" | "success" | "failed">
   >({});
-  const [bulkFailures, setBulkFailures] = useState<
-    { id: string; email: string; reason: string }[]
-  >([]);
+  const [bulkFailures, setBulkFailures] = useState<{ id: string; email: string; reason: string }[]>(
+    [],
+  );
   const [bulkFailuresOpen, setBulkFailuresOpen] = useState(false);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
@@ -171,13 +214,13 @@ function MembersPage() {
     const url = `${window.location.origin}/join/${token}`;
     navigator.clipboard.writeText(url).then(
       () => toast.success("Invite link copied", { description: url }),
-      () => toast.error("Couldn't copy — copy manually", { description: url })
+      () => toast.error("Couldn't copy — copy manually", { description: url }),
     );
   };
   const copyInviteToken = (token: string) => {
     navigator.clipboard.writeText(token).then(
       () => toast.success("Invitation token copied"),
-      () => toast.error("Couldn't copy token")
+      () => toast.error("Couldn't copy token"),
     );
   };
 
@@ -197,7 +240,9 @@ function MembersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organization_invitations")
-        .select("id, email, role, token, accepted_at, rejected_at, expires_at, created_at, assigned_role_key")
+        .select(
+          "id, email, role, token, accepted_at, rejected_at, expires_at, created_at, assigned_role_key",
+        )
         .eq("organization_id", currentOrgId!)
         .is("accepted_at", null)
         .order("created_at", { ascending: false });
@@ -213,12 +258,22 @@ function MembersPage() {
       .channel(`members-page-${currentOrgId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "organization_members", filter: `organization_id=eq.${currentOrgId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "organization_members",
+          filter: `organization_id=eq.${currentOrgId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["members-page", "members", currentOrgId] }),
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "organization_invitations", filter: `organization_id=eq.${currentOrgId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "organization_invitations",
+          filter: `organization_id=eq.${currentOrgId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] }),
       )
       .subscribe();
@@ -289,7 +344,8 @@ function MembersPage() {
     return {
       total: memberList.length,
       active: memberList.filter((m) => m.status === "active").length,
-      pending: inviteList.filter((i) => !i.rejected_at && new Date(i.expires_at) >= new Date()).length,
+      pending: inviteList.filter((i) => !i.rejected_at && new Date(i.expires_at) >= new Date())
+        .length,
     };
   }, [members.data, invites.data]);
 
@@ -318,7 +374,11 @@ function MembersPage() {
             inviterName: user.email ?? undefined,
           },
         });
-        emailStatus = res?.sent ? "sent" : res?.reason === "not_configured" ? "not_configured" : "failed";
+        emailStatus = res?.sent
+          ? "sent"
+          : res?.reason === "not_configured"
+            ? "not_configured"
+            : "failed";
       } catch {
         emailStatus = "failed";
       }
@@ -328,14 +388,18 @@ function MembersPage() {
       const url = `${window.location.origin}/join/${token}`;
       navigator.clipboard?.writeText(url).catch(() => {});
       if (emailStatus === "sent") {
-        toast.success("Invitation sent", { description: "Email delivered. Link also copied to clipboard." });
+        toast.success("Invitation sent", {
+          description: "Email delivered. Link also copied to clipboard.",
+        });
       } else if (emailStatus === "not_configured") {
         toast.success("Invitation created", {
-          description: "Email delivery isn't configured yet — invite link copied. Set up an email domain to send automatically.",
+          description:
+            "Email delivery isn't configured yet — invite link copied. Set up an email domain to send automatically.",
         });
       } else {
         toast.warning("Invitation created, email failed", {
-          description: "We couldn't send the email. Invite link copied to clipboard — share it manually.",
+          description:
+            "We couldn't send the email. Invite link copied to clipboard — share it manually.",
         });
       }
       setInviteOpen(false);
@@ -344,10 +408,13 @@ function MembersPage() {
     onError: (e: Error) => {
       const msg = e.message || "Failed to create invitation";
       if (/already a member/i.test(msg)) {
-        toast.error("Already a member", { description: "This person is already part of your organization." });
+        toast.error("Already a member", {
+          description: "This person is already part of your organization.",
+        });
       } else if (/active invitation already exists/i.test(msg)) {
         toast.error("Invitation pending", {
-          description: "An active invitation already exists for this email. Resend or cancel it from the list.",
+          description:
+            "An active invitation already exists for this email. Resend or cancel it from the list.",
         });
       } else if (/Insufficient permissions/i.test(msg)) {
         toast.error("Not allowed", { description: "You don't have permission to invite members." });
@@ -375,7 +442,10 @@ function MembersPage() {
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "active" | "suspended" }) => {
-      const { error } = await supabase.rpc("set_member_status", { _member_id: id, _status: status });
+      const { error } = await supabase.rpc("set_member_status", {
+        _member_id: id,
+        _status: status,
+      });
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
@@ -426,7 +496,7 @@ function MembersPage() {
               organizationId: currentOrgId,
               inviterName: user?.email ?? undefined,
             },
-        });
+          });
           if (result?.sent) {
             toast.success("Invitation email resent", { description: row.email });
             return;
@@ -450,7 +520,9 @@ function MembersPage() {
       // seed all as queued
       setBulkStatuses(() => {
         const seed: Record<string, "queued" | "regenerating" | "success" | "failed"> = {};
-        ids.forEach((id) => { seed[id] = "queued"; });
+        ids.forEach((id) => {
+          seed[id] = "queued";
+        });
         return seed;
       });
       // capture emails up front so failure messages have context
@@ -539,9 +611,6 @@ function MembersPage() {
     },
   });
 
-
-
-
   const cancelInvite = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("organization_invitations").delete().eq("id", id);
@@ -569,19 +638,19 @@ function MembersPage() {
     (r) => r.kind === "invitation" && r.status === "pending" && r.token,
   );
   const selectedCount = pendingInviteRows.filter((r) => selectedInviteIds.has(r.id)).length;
-  const allPendingSelected = pendingInviteRows.length > 0 && selectedCount === pendingInviteRows.length;
+  const allPendingSelected =
+    pendingInviteRows.length > 0 && selectedCount === pendingInviteRows.length;
   const toggleSelect = (id: string, on: boolean) => {
     setSelectedInviteIds((prev) => {
       const next = new Set(prev);
-      if (on) next.add(id); else next.delete(id);
+      if (on) next.add(id);
+      else next.delete(id);
       return next;
     });
   };
   const toggleSelectAllPending = (on: boolean) => {
     setSelectedInviteIds(on ? new Set(pendingInviteRows.map((r) => r.id)) : new Set());
   };
-
-
 
   return (
     <div className="space-y-6">
@@ -625,7 +694,9 @@ function MembersPage() {
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
             <SelectItem value="owner">Owner</SelectItem>
@@ -637,7 +708,9 @@ function MembersPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -651,17 +724,17 @@ function MembersPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground mr-1">Quick filter:</span>
-        {([
-          { key: "all", label: "All" },
-          { key: "active", label: "Active" },
-          { key: "pending", label: "Pending" },
-          { key: "expired", label: "Expired" },
-          { key: "rejected", label: "Rejected" },
-        ] as const).map((f) => {
+        {(
+          [
+            { key: "all", label: "All" },
+            { key: "active", label: "Active" },
+            { key: "pending", label: "Pending" },
+            { key: "expired", label: "Expired" },
+            { key: "rejected", label: "Rejected" },
+          ] as const
+        ).map((f) => {
           const count =
-            f.key === "all"
-              ? rows.length
-              : rows.filter((r) => r.status === f.key).length;
+            f.key === "all" ? rows.length : rows.filter((r) => r.status === f.key).length;
           const active = statusFilter === f.key;
           return (
             <Button
@@ -673,7 +746,9 @@ function MembersPage() {
               onClick={() => setStatusFilter(f.key)}
             >
               {f.label}
-              <span className={`ml-1.5 rounded px-1 text-[10px] ${active ? "bg-primary-foreground/20" : "bg-muted"}`}>
+              <span
+                className={`ml-1.5 rounded px-1 text-[10px] ${active ? "bg-primary-foreground/20" : "bg-muted"}`}
+              >
                 {count}
               </span>
             </Button>
@@ -735,7 +810,6 @@ function MembersPage() {
       )}
 
       <div className="rounded-xl border bg-card overflow-x-auto">
-
         <Table>
           <TableHeader>
             <TableRow>
@@ -763,15 +837,32 @@ function MembersPage() {
           </TableHeader>
           <TableBody>
             {members.isLoading || (canManage && invites.isLoading) ? (
-              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow>
+                <TableCell
+                  colSpan={canManage ? 11 : 10}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
+                  Loading…
+                </TableCell>
+              </TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
+              <TableRow>
+                <TableCell
+                  colSpan={canManage ? 11 : 10}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
+                  No members match your filters.
+                </TableCell>
+              </TableRow>
             ) : (
               filtered.map((r) => {
                 const isSelf = r.userId && r.userId === user?.id;
                 const selectable = r.kind === "invitation" && r.status === "pending" && !!r.token;
                 return (
-                  <TableRow key={r.key} data-state={selectedInviteIds.has(r.id) ? "selected" : undefined}>
+                  <TableRow
+                    key={r.key}
+                    data-state={selectedInviteIds.has(r.id) ? "selected" : undefined}
+                  >
                     {canManage && (
                       <TableCell>
                         {selectable ? (
@@ -801,7 +892,9 @@ function MembersPage() {
                           value={r.role}
                           onValueChange={(v) => updateRole.mutate({ id: r.id, role: v as OrgRole })}
                         >
-                          <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
                             {isOwner && <SelectItem value="owner">Owner</SelectItem>}
                             <SelectItem value="admin">Admin</SelectItem>
@@ -815,80 +908,114 @@ function MembersPage() {
                     <TableCell>
                       <Badge
                         variant={
-                          r.status === "active" ? "default"
-                          : r.status === "pending" ? "secondary"
-                          : "destructive"
+                          r.status === "active"
+                            ? "default"
+                            : r.status === "pending"
+                              ? "secondary"
+                              : "destructive"
                         }
                       >
                         {r.status}
                       </Badge>
-                      {r.kind === "invitation" && bulkStatuses[r.id] && (() => {
-                        const s = bulkStatuses[r.id];
-                        const map = {
-                          queued: { label: "Queued", cls: "bg-muted text-muted-foreground", icon: null },
-                          regenerating: { label: "Regenerating…", cls: "bg-primary/10 text-primary", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-                          success: { label: "Refreshed", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", icon: <Check className="h-3 w-3" /> },
-                          failed: { label: "Failed", cls: "bg-destructive/15 text-destructive", icon: <XIcon className="h-3 w-3" /> },
-                        } as const;
-                        const cfg = map[s];
-                        return (
-                          <span className={`ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${cfg.cls}`}>
-                            {cfg.icon}
-                            {cfg.label}
-                          </span>
-                        );
-                      })()}
-                      {r.kind === "invitation" && r.token && !emailConfigured && (() => {
-                        const bs = bulkStatuses[r.id];
-                        // Only allow copy when there's no in-flight status, or the last status is 'success'
-                        const copyBlocked = !!bs && bs !== "success";
-                        const copyTitle = copyBlocked
-                          ? bs === "failed"
-                            ? "Regeneration failed — refresh again before copying"
-                            : "Waiting for regeneration to complete"
-                          : "Copy invite link";
-                        return (
-                          <div className="mt-1 inline-flex flex-wrap items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => copyInviteLink(r.token!)}
-                              disabled={bulkRefresh.isPending || copyBlocked}
-                              title={copyTitle}
+                      {r.kind === "invitation" &&
+                        bulkStatuses[r.id] &&
+                        (() => {
+                          const s = bulkStatuses[r.id];
+                          const map = {
+                            queued: {
+                              label: "Queued",
+                              cls: "bg-muted text-muted-foreground",
+                              icon: null,
+                            },
+                            regenerating: {
+                              label: "Regenerating…",
+                              cls: "bg-primary/10 text-primary",
+                              icon: <Loader2 className="h-3 w-3 animate-spin" />,
+                            },
+                            success: {
+                              label: "Refreshed",
+                              cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                              icon: <Check className="h-3 w-3" />,
+                            },
+                            failed: {
+                              label: "Failed",
+                              cls: "bg-destructive/15 text-destructive",
+                              icon: <XIcon className="h-3 w-3" />,
+                            },
+                          } as const;
+                          const cfg = map[s];
+                          return (
+                            <span
+                              className={`ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${cfg.cls}`}
                             >
-                              <Copy className="mr-1 h-3 w-3" /> Copy link
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setConfirmRefreshId(r.id)}
-                              disabled={resend.isPending || bulkRefresh.isPending}
-                              title="Regenerate token and copy the new link"
-                            >
-                              <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
-                              Refresh
-                            </Button>
-                          </div>
-                        );
-                      })()}
+                              {cfg.icon}
+                              {cfg.label}
+                            </span>
+                          );
+                        })()}
+                      {r.kind === "invitation" &&
+                        r.token &&
+                        !emailConfigured &&
+                        (() => {
+                          const bs = bulkStatuses[r.id];
+                          // Only allow copy when there's no in-flight status, or the last status is 'success'
+                          const copyBlocked = !!bs && bs !== "success";
+                          const copyTitle = copyBlocked
+                            ? bs === "failed"
+                              ? "Regeneration failed — refresh again before copying"
+                              : "Waiting for regeneration to complete"
+                            : "Copy invite link";
+                          return (
+                            <div className="mt-1 inline-flex flex-wrap items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => copyInviteLink(r.token!)}
+                                disabled={bulkRefresh.isPending || copyBlocked}
+                                title={copyTitle}
+                              >
+                                <Copy className="mr-1 h-3 w-3" /> Copy link
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setConfirmRefreshId(r.id)}
+                                disabled={resend.isPending || bulkRefresh.isPending}
+                                title="Regenerate token and copy the new link"
+                              >
+                                <RefreshCw
+                                  className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`}
+                                />
+                                Refresh
+                              </Button>
+                            </div>
+                          );
+                        })()}
 
-                      {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
-                        const t = timeUntil(r.expiresAt);
-                        return (
-                          <div
-                            className={`mt-1 text-[11px] ${t.expired ? "text-destructive" : "text-muted-foreground"}`}
-                            title={`Expires ${new Date(r.expiresAt).toLocaleString()}`}
-                          >
-                            {t.expired ? "Link expired" : `Link ${t.label}`}
-                          </div>
-                        );
-                      })()}
+                      {r.kind === "invitation" &&
+                        !emailConfigured &&
+                        r.expiresAt &&
+                        (() => {
+                          const t = timeUntil(r.expiresAt);
+                          return (
+                            <div
+                              className={`mt-1 text-[11px] ${t.expired ? "text-destructive" : "text-muted-foreground"}`}
+                              title={`Expires ${new Date(r.expiresAt).toLocaleString()}`}
+                            >
+                              {t.expired ? "Link expired" : `Link ${t.label}`}
+                            </div>
+                          );
+                        })()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.department}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {r.teams.length === 0 ? "—" : r.teams.length === 1 ? r.teams[0] : `${r.teams[0]} +${r.teams.length - 1}`}
+                      {r.teams.length === 0
+                        ? "—"
+                        : r.teams.length === 1
+                          ? r.teams[0]
+                          : `${r.teams[0]} +${r.teams.length - 1}`}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(r.joinedAt).toLocaleDateString()}
@@ -932,11 +1059,17 @@ function MembersPage() {
                             {r.kind === "member" && !isSelf && (
                               <>
                                 {r.status === "active" ? (
-                                  <DropdownMenuItem onClick={() => setStatus.mutate({ id: r.id, status: "suspended" })}>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setStatus.mutate({ id: r.id, status: "suspended" })
+                                    }
+                                  >
                                     <UserX className="mr-2 h-4 w-4" /> Suspend member
                                   </DropdownMenuItem>
                                 ) : (
-                                  <DropdownMenuItem onClick={() => setStatus.mutate({ id: r.id, status: "active" })}>
+                                  <DropdownMenuItem
+                                    onClick={() => setStatus.mutate({ id: r.id, status: "active" })}
+                                  >
                                     <UserCheck className="mr-2 h-4 w-4" /> Activate member
                                   </DropdownMenuItem>
                                 )}
@@ -978,15 +1111,16 @@ function MembersPage() {
 
       <AlertDialog
         open={confirmRefreshId !== null}
-        onOpenChange={(v) => { if (!v) setConfirmRefreshId(null); }}
+        onOpenChange={(v) => {
+          if (!v) setConfirmRefreshId(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Regenerate invitation link?</AlertDialogTitle>
             <AlertDialogDescription>
-              This immediately invalidates the current invite link and issues a new
-              one with a fresh expiration. Anyone holding the old link will no
-              longer be able to use it.
+              This immediately invalidates the current invite link and issues a new one with a fresh
+              expiration. Anyone holding the old link will no longer be able to use it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1003,19 +1137,16 @@ function MembersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={confirmBulkOpen}
-        onOpenChange={setConfirmBulkOpen}
-      >
+      <AlertDialog open={confirmBulkOpen} onOpenChange={setConfirmBulkOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               Refresh {selectedCount} invitation{selectedCount === 1 ? "" : "s"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Each selected invitation gets a brand-new token and expiration.
-              Previously shared links stop working. The new links are copied
-              to your clipboard as a list you can paste into any tool.
+              Each selected invitation gets a brand-new token and expiration. Previously shared
+              links stop working. The new links are copied to your clipboard as a list you can paste
+              into any tool.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1039,10 +1170,12 @@ function MembersPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {bulkFailures.length} invitation{bulkFailures.length === 1 ? "" : "s"} failed to refresh
+              {bulkFailures.length} invitation{bulkFailures.length === 1 ? "" : "s"} failed to
+              refresh
             </DialogTitle>
             <DialogDescription>
-              The invitations below could not be regenerated. Successful ones were copied to your clipboard.
+              The invitations below could not be regenerated. Successful ones were copied to your
+              clipboard.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[320px] overflow-auto rounded-md border">
@@ -1116,17 +1249,25 @@ function MembersPage() {
               )}
               Retry failed ({bulkFailures.length})
             </Button>
-            <Button variant="ghost" onClick={() => setBulkFailuresOpen(false)}>Close</Button>
+            <Button variant="ghost" onClick={() => setBulkFailuresOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
-
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-
-function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: number;
+}) {
   return (
     <Card>
       <CardContent className="flex items-center justify-between gap-3 p-4">
@@ -1171,8 +1312,8 @@ function EmailDeliveryBanner() {
               Email delivery is not configured
             </p>
             <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
-              Invitations are still created and the join link is copied to your clipboard,
-              but no email is sent automatically. Complete the checklist below to enable delivery.
+              Invitations are still created and the join link is copied to your clipboard, but no
+              email is sent automatically. Complete the checklist below to enable delivery.
             </p>
           </div>
           <ul className="space-y-1 text-xs text-amber-900 dark:text-amber-100">
@@ -1188,8 +1329,8 @@ function EmailDeliveryBanner() {
             ))}
           </ul>
           <p className="text-[11px] text-amber-800/80 dark:text-amber-200/70">
-            Once a sender domain is set up in Cloud → Emails, the invitation template
-            activates automatically and this banner disappears.
+            Once a sender domain is set up in Cloud → Emails, the invitation template activates
+            automatically and this banner disappears.
           </p>
         </div>
       </div>
@@ -1198,7 +1339,10 @@ function EmailDeliveryBanner() {
 }
 
 function InviteDialog({
-  open, onOpenChange, pending, onSubmit,
+  open,
+  onOpenChange,
+  pending,
+  onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -1214,7 +1358,10 @@ function InviteDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
     >
       <DialogContent>
         <DialogHeader>
@@ -1230,30 +1377,34 @@ function InviteDialog({
         >
           <div>
             <Label htmlFor="invite-email">Email Address</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              autoComplete="email"
-              {...register("email")}
-            />
+            <Input id="invite-email" type="email" autoComplete="email" {...register("email")} />
             {formState.errors.email && (
               <p className="mt-1 text-xs text-destructive">{formState.errors.email.message}</p>
             )}
           </div>
           <div>
             <Label>Role</Label>
-            <Select value={roleKey} onValueChange={(r) => setValue("roleKey", r as InviteFormValues["roleKey"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={roleKey}
+              onValueChange={(r) => setValue("roleKey", r as InviteFormValues["roleKey"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {RBAC_ROLES.map((r) => (
-                  <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>
+                  <SelectItem key={r.key} value={r.key}>
+                    {r.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         </form>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button type="submit" form="invite-member-form" disabled={pending}>
             {pending ? "Sending…" : "Send Invitation"}
           </Button>
@@ -1281,7 +1432,7 @@ function PreviewEmailDialog({
   const [inviteUrl, setInviteUrl] = useState(
     typeof window !== "undefined"
       ? `${window.location.origin}/invitations/accept?token=preview-token-123`
-      : "https://example.com/invitations/accept?token=preview-token-123"
+      : "https://example.com/invitations/accept?token=preview-token-123",
   );
   const [testEmail, setTestEmail] = useState("");
 
@@ -1302,7 +1453,7 @@ function PreviewEmailDialog({
         toast.error("Couldn't send test email", { description: res?.detail });
       }
     },
-    onError: (err: any) => toast.error("Couldn't send test email", { description: err?.message }),
+    onError: (err: Error) => toast.error("Couldn't send test email", { description: err?.message }),
   });
 
   useEffect(() => {
