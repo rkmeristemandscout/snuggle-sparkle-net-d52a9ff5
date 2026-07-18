@@ -49,11 +49,15 @@ function ProfilePage() {
     let cancelled = false;
     async function load() {
       if (!profile.data?.avatar_url) return setAvatarSignedUrl(null);
-      const { data } = await supabase.storage.from("avatars").createSignedUrl(profile.data.avatar_url, 3600);
+      const { data } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(profile.data.avatar_url, 3600);
       if (!cancelled) setAvatarSignedUrl(data?.signedUrl ?? null);
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [profile.data?.avatar_url]);
 
   const saveProfile = useMutation({
@@ -116,7 +120,12 @@ function ProfilePage() {
           <p className="font-medium">{profile.data?.full_name ?? user?.email}</p>
           <p className="text-sm text-muted-foreground">{user?.email}</p>
           <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploadAvatar.isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadAvatar.isPending}
+            >
               {uploadAvatar.isPending ? "Uploading…" : "Upload avatar"}
             </Button>
             <input
@@ -134,7 +143,10 @@ function ProfilePage() {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit((v) => saveProfile.mutate(v))} className="space-y-4 rounded-xl border bg-card p-6">
+      <form
+        onSubmit={handleSubmit((v) => saveProfile.mutate(v))}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
         <div>
           <Label htmlFor="fullName">Full name</Label>
           <Input id="fullName" {...register("fullName")} />

@@ -77,19 +77,20 @@ function OrganizationsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           You'll be the owner of the new workspace.
         </p>
-        <form
-          onSubmit={handleSubmit((v) => createOrg.mutate(v))}
-          className="mt-4 space-y-4"
-        >
+        <form onSubmit={handleSubmit((v) => createOrg.mutate(v))} className="mt-4 space-y-4">
           <div>
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...register("name")} />
-            {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+            {formState.errors.name && (
+              <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="slug">Slug</Label>
             <Input id="slug" placeholder="acme-inc" {...register("slug")} />
-            {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+            {formState.errors.slug && (
+              <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
@@ -140,19 +141,29 @@ function OrganizationsPage() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {!isCurrent && (
-                      <Button size="sm" variant="outline" onClick={() => setCurrentOrgId(m.organization.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCurrentOrgId(m.organization.id)}
+                      >
                         Switch
                       </Button>
                     )}
                     {canManage && (
                       <>
                         <Button size="sm" variant="outline" asChild>
-                          <Link to="/organizations/$slug/settings" params={{ slug: m.organization.slug }}>
+                          <Link
+                            to="/organizations/$slug/settings"
+                            params={{ slug: m.organization.slug }}
+                          >
                             <Settings2 className="mr-1 h-3.5 w-3.5" /> Settings
                           </Link>
                         </Button>
                         <Button size="sm" variant="outline" asChild>
-                          <Link to="/organizations/$slug/members" params={{ slug: m.organization.slug }}>
+                          <Link
+                            to="/organizations/$slug/members"
+                            params={{ slug: m.organization.slug }}
+                          >
                             <Users className="mr-1 h-3.5 w-3.5" /> Members
                           </Link>
                         </Button>
@@ -168,8 +179,8 @@ function OrganizationsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Leave {m.organization.name}?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            You'll lose access to this organization's data. If you're the last owner,
-                            you must transfer ownership first.
+                            You'll lose access to this organization's data. If you're the last
+                            owner, you must transfer ownership first.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

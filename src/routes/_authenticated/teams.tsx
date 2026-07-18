@@ -17,9 +17,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2, X, Check } from "lucide-react";
 
@@ -28,8 +34,12 @@ export const Route = createFileRoute("/_authenticated/teams")({
 });
 
 type TeamRow = {
-  id: string; name: string; slug: string;
-  description: string | null; owner_id: string; created_at: string;
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  owner_id: string;
+  created_at: string;
   owner: { full_name: string | null } | null;
 };
 
@@ -60,7 +70,9 @@ function TeamsPage() {
       let owners: Record<string, { full_name: string | null }> = {};
       if (ids.length) {
         const { data: profs } = await supabase
-          .from("profiles").select("id, full_name").in("id", ids);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
         owners = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       return (data ?? []).map((t) => ({ ...t, owner: owners[t.owner_id] ?? null }));
@@ -128,21 +140,31 @@ function TeamsPage() {
                     <p className="text-xs text-muted-foreground">
                       /{t.slug} · owner {t.owner?.full_name ?? "unknown"}
                       {t.owner_id === user?.id && (
-                        <Badge variant="secondary" className="ml-2">You</Badge>
+                        <Badge variant="secondary" className="ml-2">
+                          You
+                        </Badge>
                       )}
                     </p>
                     {t.description && (
-                      <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{t.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
+                        {t.description}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
                     <Button size="sm" variant="outline" asChild>
-                      <Link to="/teams/$teamId" params={{ teamId: t.id }}>Open</Link>
+                      <Link to="/teams/$teamId" params={{ teamId: t.id }}>
+                        Open
+                      </Link>
                     </Button>
                     {(t.owner_id === user?.id || isAdmin) && (
                       <>
-                        <Button size="icon" variant="ghost" aria-label="Edit"
-                          onClick={() => setEditingId(t.id)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label="Edit"
+                          onClick={() => setEditingId(t.id)}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
@@ -170,7 +192,7 @@ function TeamsPage() {
                     )}
                   </div>
                 </li>
-              )
+              ),
             )}
           </ul>
         ) : (
@@ -185,12 +207,16 @@ function TeamsPage() {
             <div>
               <Label htmlFor="team-name">Name</Label>
               <Input id="team-name" {...register("name")} />
-              {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+              {formState.errors.name && (
+                <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="team-slug">Slug</Label>
               <Input id="team-slug" placeholder="growth" {...register("slug")} />
-              {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+              {formState.errors.slug && (
+                <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="team-desc">Description</Label>
@@ -207,7 +233,9 @@ function TeamsPage() {
 }
 
 function EditTeamRow({
-  team, onDone, onCancel,
+  team,
+  onDone,
+  onCancel,
 }: {
   team: { id: string; name: string; slug: string; description: string | null };
   onDone: () => void;
@@ -220,7 +248,10 @@ function EditTeamRow({
   });
   const mut = useMutation({
     mutationFn: async (v: TeamValues) => upd({ data: { teamId: team.id, ...v } }),
-    onSuccess: () => { toast.success("Team updated"); onDone(); },
+    onSuccess: () => {
+      toast.success("Team updated");
+      onDone();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -229,11 +260,15 @@ function EditTeamRow({
       <form onSubmit={handleSubmit((v) => mut.mutate(v))} className="grid gap-2 md:grid-cols-3">
         <div>
           <Input {...register("name")} placeholder="Name" />
-          {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+          {formState.errors.name && (
+            <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+          )}
         </div>
         <div>
           <Input {...register("slug")} placeholder="slug" />
-          {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+          {formState.errors.slug && (
+            <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+          )}
         </div>
         <Input {...register("description")} placeholder="Description" />
         <div className="md:col-span-3 flex justify-end gap-1">

@@ -45,8 +45,8 @@ function Landing() {
           A production-ready foundation for your SaaS.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Multi-tenant workspaces, authentication, roles, and everything you need to ship your
-          next Slack or Notion competitor.
+          Multi-tenant workspaces, authentication, roles, and everything you need to ship your next
+          Slack or Notion competitor.
         </p>
         <div className="mt-10 flex justify-center gap-3">
           <Button asChild size="lg">
@@ -64,9 +64,21 @@ function Landing() {
 
       <section className="mx-auto grid max-w-5xl gap-6 px-6 pb-24 md:grid-cols-3">
         {[
-          { icon: Lock, title: "Secure auth", body: "Email, Google, password reset, and email verification." },
-          { icon: Building2, title: "Organizations", body: "Multi-tenant workspaces with owner, admin, and member roles." },
-          { icon: Users, title: "Team members", body: "Invite, manage, and scope access per workspace." },
+          {
+            icon: Lock,
+            title: "Secure auth",
+            body: "Email, Google, password reset, and email verification.",
+          },
+          {
+            icon: Building2,
+            title: "Organizations",
+            body: "Multi-tenant workspaces with owner, admin, and member roles.",
+          },
+          {
+            icon: Users,
+            title: "Team members",
+            body: "Invite, manage, and scope access per workspace.",
+          },
         ].map(({ icon: Icon, title, body }) => (
           <div key={title} className="rounded-xl border bg-card p-6">
             <Icon className="h-6 w-6 text-primary" />

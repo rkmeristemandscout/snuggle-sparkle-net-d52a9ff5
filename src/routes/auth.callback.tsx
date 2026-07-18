@@ -12,7 +12,10 @@ function Callback() {
   useEffect(() => {
     const timer = setTimeout(async () => {
       const { data } = await supabase.auth.getSession();
-      navigate({ to: data.session ? "/dashboard" : "/auth", search: data.session ? undefined : { mode: "signin" as const } });
+      navigate({
+        to: data.session ? "/dashboard" : "/auth",
+        search: data.session ? undefined : { mode: "signin" as const },
+      });
     }, 400);
     return () => clearTimeout(timer);
   }, [navigate]);

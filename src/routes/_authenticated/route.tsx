@@ -13,8 +13,12 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { Moon, Sun, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
 
@@ -55,7 +59,11 @@ function TopBar() {
   const { theme, toggle } = useTheme();
 
   async function signOut() {
-    try { await supabase.rpc("log_auth_event", { _action: "logout" }); } catch { /* best-effort */ }
+    try {
+      await supabase.rpc("log_auth_event", { _action: "logout" });
+    } catch {
+      /* best-effort */
+    }
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
@@ -64,7 +72,11 @@ function TopBar() {
 
   const initials =
     (user?.user_metadata?.full_name as string | undefined)
-      ?.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase() ||
+      ?.split(" ")
+      .map((s) => s[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() ||
     user?.email?.[0]?.toUpperCase() ||
     "U";
 
@@ -91,7 +103,9 @@ function TopBar() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>
-            <p className="truncate text-sm">{user?.user_metadata?.full_name as string ?? "Account"}</p>
+            <p className="truncate text-sm">
+              {(user?.user_metadata?.full_name as string) ?? "Account"}
+            </p>
             <p className="truncate text-xs font-normal text-muted-foreground">{user?.email}</p>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

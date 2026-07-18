@@ -45,4 +45,3 @@ export function installClientErrorLogging() {
     reportLovableError(reason, { source: "window.unhandledrejection", clientSessionId });
   });
 }
-

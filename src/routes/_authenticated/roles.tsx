@@ -7,7 +7,11 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 
@@ -62,7 +66,8 @@ function RolesPage() {
       const map = new Map<string, { key: string; category: string; description: string }[]>();
       for (const row of data ?? []) {
         const list = map.get(row.role_id) ?? [];
-        if (row.permission) list.push(row.permission as { key: string; category: string; description: string });
+        if (row.permission)
+          list.push(row.permission as { key: string; category: string; description: string });
         map.set(row.role_id, list);
       }
       return map;
@@ -82,7 +87,9 @@ function RolesPage() {
       let profiles: Record<string, { full_name: string | null }> = {};
       if (ids.length) {
         const { data: profs } = await supabase
-          .from("profiles").select("id, full_name").in("id", ids);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
         profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       return (data ?? []).map((r) => ({
@@ -104,8 +111,7 @@ function RolesPage() {
       if (error) throw error;
       const ids = (data ?? []).map((m) => m.user_id);
       if (!ids.length) return [];
-      const { data: profs } = await supabase
-        .from("profiles").select("id, full_name").in("id", ids);
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
       return profs ?? [];
     },
   });
@@ -113,7 +119,9 @@ function RolesPage() {
   const grant = useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
       const { error } = await supabase.from("user_roles").insert({
-        user_id: userId, role_id: roleId, organization_id: currentOrgId,
+        user_id: userId,
+        role_id: roleId,
+        organization_id: currentOrgId,
       });
       if (error) throw error;
     },
@@ -167,7 +175,10 @@ function RolesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">
-                    {r.name} <Badge variant="outline" className="ml-2">{r.scope}</Badge>
+                    {r.name}{" "}
+                    <Badge variant="outline" className="ml-2">
+                      {r.scope}
+                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{r.description}</p>
                 </div>
@@ -196,11 +207,15 @@ function RolesPage() {
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <Select onValueChange={(v) => {
-              const [userId, roleId] = v.split("|");
-              grant.mutate({ userId, roleId });
-            }}>
-              <SelectTrigger><SelectValue placeholder="Grant role to member…" /></SelectTrigger>
+            <Select
+              onValueChange={(v) => {
+                const [userId, roleId] = v.split("|");
+                grant.mutate({ userId, roleId });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Grant role to member…" />
+              </SelectTrigger>
               <SelectContent>
                 {members.data?.flatMap((m) =>
                   assignableRoles.map((r) => (
@@ -221,7 +236,8 @@ function RolesPage() {
                   <p className="text-xs text-muted-foreground">{a.role?.name ?? a.role_id}</p>
                 </div>
                 <Button
-                  size="icon" variant="ghost"
+                  size="icon"
+                  variant="ghost"
                   aria-label="Revoke"
                   onClick={() => revoke.mutate(a.id)}
                 >
@@ -231,7 +247,8 @@ function RolesPage() {
             ))}
             {assignments.data && assignments.data.length === 0 && (
               <li className="py-3 text-sm text-muted-foreground">
-                No custom role assignments yet. Members automatically receive roles from their organization membership.
+                No custom role assignments yet. Members automatically receive roles from their
+                organization membership.
               </li>
             )}
           </ul>

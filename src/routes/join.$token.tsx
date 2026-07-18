@@ -44,7 +44,6 @@ function JoinPage() {
     if (!accept.isPending && !accept.isSuccess && !accept.isError) {
       accept.mutate();
     }
-     
   }, [loading, user, token]);
 
   return (

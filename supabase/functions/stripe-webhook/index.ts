@@ -19,7 +19,11 @@ const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 
 async function planIdFromPrice(priceId?: string | null) {
   if (!priceId) return null;
-  const { data } = await supabase.from("plans").select("id").eq("stripe_price_id", priceId).maybeSingle();
+  const { data } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("stripe_price_id", priceId)
+    .maybeSingle();
   return data?.id ?? null;
 }
 
@@ -38,10 +42,11 @@ function ts(sec?: number | null) {
 }
 
 async function upsertSubscription(sub: any, orgIdHint?: string | null, forceDeleted = false) {
-  const orgId = orgIdHint ?? sub.metadata?.organization_id ?? (await orgIdFromCustomer(sub.customer));
+  const orgId =
+    orgIdHint ?? sub.metadata?.organization_id ?? (await orgIdFromCustomer(sub.customer));
   if (!orgId) return;
   const planId = forceDeleted
-    ? (await supabase.from("plans").select("id").eq("key", "free").maybeSingle()).data?.id ?? null
+    ? ((await supabase.from("plans").select("id").eq("key", "free").maybeSingle()).data?.id ?? null)
     : await planIdFromPrice(sub.items?.data?.[0]?.price?.id);
   await supabase.from("subscriptions").upsert(
     {
@@ -78,9 +83,17 @@ Deno.serve(async (req) => {
   const body = await req.text();
   let event: Stripe.Event;
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret, undefined, cryptoProvider);
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      signature,
+      webhookSecret,
+      undefined,
+      cryptoProvider,
+    );
   } catch (err) {
-    return new Response(`Signature verification failed: ${(err as Error).message}`, { status: 400 });
+    return new Response(`Signature verification failed: ${(err as Error).message}`, {
+      status: 400,
+    });
   }
 
   try {

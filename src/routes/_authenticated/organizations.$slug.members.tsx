@@ -143,10 +143,7 @@ function MembersPage() {
 
   const updateRole = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: OrgRole }) => {
-      const { error } = await supabase
-        .from("organization_members")
-        .update({ role })
-        .eq("id", id);
+      const { error } = await supabase.from("organization_members").update({ role }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -188,7 +185,9 @@ function MembersPage() {
                       {profile?.full_name ?? m.user_id.slice(0, 8)}
                       {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
                     </p>
-                    <p className="text-xs text-muted-foreground">Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Joined {new Date(m.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {canManage && !isSelf ? (
@@ -196,7 +195,9 @@ function MembersPage() {
                         value={m.role}
                         onValueChange={(r) => updateRole.mutate({ id: m.id, role: r as OrgRole })}
                       >
-                        <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           {isOwner && <SelectItem value="owner">Owner</SelectItem>}
                           <SelectItem value="admin">Admin</SelectItem>
@@ -238,8 +239,13 @@ function MembersPage() {
               </div>
               <div>
                 <Label>Role</Label>
-                <Select value={role} onValueChange={(r) => setValue("role", r as "admin" | "member")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={role}
+                  onValueChange={(r) => setValue("role", r as "admin" | "member")}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
@@ -276,16 +282,19 @@ function MembersPage() {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{inv.email}</p>
                           <p className="text-xs text-muted-foreground">
-                            {inv.role} · {isPending
+                            {inv.role} ·{" "}
+                            {isPending
                               ? `expires ${new Date(inv.expires_at).toLocaleDateString()}`
                               : status}
                           </p>
                         </div>
                         <Badge
                           variant={
-                            status === "pending" ? "secondary"
-                            : status === "accepted" ? "default"
-                            : "destructive"
+                            status === "pending"
+                              ? "secondary"
+                              : status === "accepted"
+                                ? "default"
+                                : "destructive"
                           }
                         >
                           {status}
@@ -294,7 +303,8 @@ function MembersPage() {
                       <div className="mt-2 flex flex-wrap gap-1">
                         {isPending && (
                           <Button
-                            size="sm" variant="ghost"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => {
                               navigator.clipboard.writeText(url);
                               toast.success("Link copied");
@@ -305,7 +315,8 @@ function MembersPage() {
                         )}
                         {!inv.accepted_at && (
                           <Button
-                            size="sm" variant="ghost"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => resend.mutate(inv.id)}
                             disabled={resend.isPending}
                           >
@@ -314,7 +325,8 @@ function MembersPage() {
                         )}
                         {isPending && (
                           <Button
-                            size="sm" variant="ghost"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => expire.mutate(inv.id)}
                             disabled={expire.isPending}
                           >
@@ -322,7 +334,9 @@ function MembersPage() {
                           </Button>
                         )}
                         <Button
-                          size="sm" variant="ghost" className="text-destructive"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
                           onClick={() => revoke.mutate(inv.id)}
                           disabled={revoke.isPending}
                         >

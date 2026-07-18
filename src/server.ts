@@ -34,11 +34,18 @@ function withRequestIdHeader(response: Response, requestId: string): Response {
   } catch {
     const headers = new Headers(response.headers);
     headers.set("x-request-id", requestId);
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   }
 }
 
-async function normalizeCatastrophicSsrResponse(response: Response, requestId: string): Promise<Response> {
+async function normalizeCatastrophicSsrResponse(
+  response: Response,
+  requestId: string,
+): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return response;
@@ -46,7 +53,10 @@ async function normalizeCatastrophicSsrResponse(response: Response, requestId: s
   const body = await response.clone().text();
   if (!isH3SwallowedErrorBody(body)) return response;
 
-  console.error(`[req ${requestId}]`, consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  console.error(
+    `[req ${requestId}]`,
+    consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`),
+  );
   return new Response(renderErrorPage(requestId), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8", "x-request-id": requestId },

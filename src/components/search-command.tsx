@@ -4,7 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -30,9 +36,21 @@ export function SearchCommand() {
     queryKey: ["search", currentOrgId],
     queryFn: async () => {
       const [teams, deps, members] = await Promise.all([
-        supabase.from("teams").select("id, name, slug").eq("organization_id", currentOrgId!).limit(20),
-        supabase.from("departments").select("id, name, slug").eq("organization_id", currentOrgId!).limit(20),
-        supabase.from("organization_members").select("user_id").eq("organization_id", currentOrgId!).limit(30),
+        supabase
+          .from("teams")
+          .select("id, name, slug")
+          .eq("organization_id", currentOrgId!)
+          .limit(20),
+        supabase
+          .from("departments")
+          .select("id, name, slug")
+          .eq("organization_id", currentOrgId!)
+          .limit(20),
+        supabase
+          .from("organization_members")
+          .select("user_id")
+          .eq("organization_id", currentOrgId!)
+          .limit(30),
       ]);
       const ids = (members.data ?? []).map((m) => m.user_id);
       const profs = ids.length
@@ -64,7 +82,8 @@ export function SearchCommand() {
         <kbd className="rounded border bg-muted px-1.5 text-[10px] font-medium">⌘K</kbd>
       </Button>
       <Button
-        variant="ghost" size="icon"
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen(true)}
         aria-label="Search"
         className="md:hidden"
@@ -82,7 +101,9 @@ export function SearchCommand() {
                 <CommandItem
                   key={t.id}
                   value={`team ${t.name}`}
-                  onSelect={() => go(() => navigate({ to: "/teams/$teamId", params: { teamId: t.id } }))}
+                  onSelect={() =>
+                    go(() => navigate({ to: "/teams/$teamId", params: { teamId: t.id } }))
+                  }
                 >
                   {t.name} <span className="ml-auto text-xs text-muted-foreground">/{t.slug}</span>
                 </CommandItem>
@@ -99,7 +120,8 @@ export function SearchCommand() {
                     value={`department ${d.name}`}
                     onSelect={() => go(() => navigate({ to: "/departments" }))}
                   >
-                    {d.name} <span className="ml-auto text-xs text-muted-foreground">/{d.slug}</span>
+                    {d.name}{" "}
+                    <span className="ml-auto text-xs text-muted-foreground">/{d.slug}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

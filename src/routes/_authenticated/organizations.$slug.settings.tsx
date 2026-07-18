@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,8 +66,12 @@ function SettingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getOrgLogoUrl(org?.logo_url).then((u) => { if (!cancelled) setLogoUrl(u); });
-    return () => { cancelled = true; };
+    getOrgLogoUrl(org?.logo_url).then((u) => {
+      if (!cancelled) setLogoUrl(u);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [org?.logo_url]);
 
   const save = useMutation({
@@ -153,7 +163,12 @@ function SettingsPage() {
             )}
           </div>
           <div>
-            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploadLogo.isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadLogo.isPending}
+            >
               {uploadLogo.isPending ? "Uploading…" : "Upload logo"}
             </Button>
             <input
@@ -172,18 +187,25 @@ function SettingsPage() {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-6 rounded-xl border bg-card p-6">
+      <form
+        onSubmit={handleSubmit((v) => save.mutate(v))}
+        className="space-y-6 rounded-xl border bg-card p-6"
+      >
         <h2 className="text-lg font-semibold">General</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...register("name")} />
-            {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+            {formState.errors.name && (
+              <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="slug">Slug</Label>
             <Input id="slug" {...register("slug")} />
-            {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+            {formState.errors.slug && (
+              <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+            )}
           </div>
         </div>
         <div>
@@ -192,7 +214,12 @@ function SettingsPage() {
         </div>
         <div>
           <Label htmlFor="status">Status</Label>
-          <Select value={status} onValueChange={(v) => setValue("status", v as "active" | "suspended", { shouldDirty: true })}>
+          <Select
+            value={status}
+            onValueChange={(v) =>
+              setValue("status", v as "active" | "suspended", { shouldDirty: true })
+            }
+          >
             <SelectTrigger id="status" className="w-[220px]">
               <SelectValue />
             </SelectTrigger>
@@ -214,7 +241,8 @@ function SettingsPage() {
         <section className="rounded-xl border border-destructive/40 bg-card p-6">
           <h2 className="text-lg font-semibold text-destructive">Danger zone</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Deleting the organization removes all members, invitations, and logo. This cannot be undone.
+            Deleting the organization removes all members, invitations, and logo. This cannot be
+            undone.
           </p>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -231,7 +259,9 @@ function SettingsPage() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => del.mutate()}>Delete permanently</AlertDialogAction>
+                <AlertDialogAction onClick={() => del.mutate()}>
+                  Delete permanently
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

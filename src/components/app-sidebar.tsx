@@ -1,11 +1,30 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Building2, Users, Boxes, Mail, ShieldCheck, UserCircle,
-  KeyRound, ScrollText, Flag, Shield, CreditCard, UsersRound,
+  LayoutDashboard,
+  Building2,
+  Users,
+  Boxes,
+  Mail,
+  ShieldCheck,
+  UserCircle,
+  KeyRound,
+  ScrollText,
+  Flag,
+  Shield,
+  CreditCard,
+  UsersRound,
 } from "lucide-react";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -24,11 +43,26 @@ export function AppSidebar() {
     { to: "/departments", label: "Departments", icon: Boxes, show: can("department.view") },
     { to: "/members", label: "Members", icon: UsersRound, show: true },
     { to: "/invitations", label: "Invitations", icon: Mail, show: can("invitation.view") },
-    { to: "/roles", label: "Roles", icon: ShieldCheck, show: can("org.manage_users") || isSuperAdmin },
+    {
+      to: "/roles",
+      label: "Roles",
+      icon: ShieldCheck,
+      show: can("org.manage_users") || isSuperAdmin,
+    },
     { to: "/api-keys", label: "API Keys", icon: KeyRound, show: can("org.manage_api_keys") },
-    { to: "/audit-logs", label: "Audit Logs", icon: ScrollText, show: can("audit.view") || isSuperAdmin },
+    {
+      to: "/audit-logs",
+      label: "Audit Logs",
+      icon: ScrollText,
+      show: can("audit.view") || isSuperAdmin,
+    },
     { to: "/feature-flags", label: "Feature Flags", icon: Flag, show: true },
-    { to: "/billing", label: "Billing", icon: CreditCard, show: currentMembership?.role === "owner" || currentMembership?.role === "admin" },
+    {
+      to: "/billing",
+      label: "Billing",
+      icon: CreditCard,
+      show: currentMembership?.role === "owner" || currentMembership?.role === "admin",
+    },
     { to: "/admin", label: "Admin Console", icon: Shield, show: isSuperAdmin },
     { to: "/profile", label: "Profile", icon: UserCircle, show: true },
   ].filter((i) => i.show);

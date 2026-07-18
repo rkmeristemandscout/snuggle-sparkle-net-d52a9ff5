@@ -16,9 +16,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2, X, Check } from "lucide-react";
 
@@ -36,7 +42,6 @@ function DepartmentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const createFn = useServerFn(createDepartment);
   const delFn = useServerFn(deleteDepartment);
-
 
   const departments = useQuery({
     enabled: !!org,
@@ -122,8 +127,12 @@ function DepartmentsPage() {
                   </div>
                   {canManage && (
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" aria-label="Edit"
-                        onClick={() => setEditingId(d.id)}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Edit"
+                        onClick={() => setEditingId(d.id)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
@@ -139,14 +148,16 @@ function DepartmentsPage() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => del.mutate(d.id)}>Delete</AlertDialogAction>
+                            <AlertDialogAction onClick={() => del.mutate(d.id)}>
+                              Delete
+                            </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
                   )}
                 </li>
-              )
+              ),
             )}
           </ul>
         ) : (
@@ -161,12 +172,16 @@ function DepartmentsPage() {
             <div>
               <Label htmlFor="dept-name">Name</Label>
               <Input id="dept-name" {...register("name")} />
-              {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+              {formState.errors.name && (
+                <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="dept-slug">Slug</Label>
               <Input id="dept-slug" placeholder="operations" {...register("slug")} />
-              {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+              {formState.errors.slug && (
+                <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="dept-desc">Description</Label>
@@ -183,7 +198,9 @@ function DepartmentsPage() {
 }
 
 function EditRow({
-  dept, onDone, onCancel,
+  dept,
+  onDone,
+  onCancel,
 }: {
   dept: { id: string; name: string; slug: string; description: string | null };
   onDone: () => void;
@@ -196,7 +213,10 @@ function EditRow({
   const updFn = useServerFn(updateDepartment);
   const update = useMutation({
     mutationFn: async (v: DepartmentValues) => updFn({ data: { departmentId: dept.id, ...v } }),
-    onSuccess: () => { toast.success("Department updated"); onDone(); },
+    onSuccess: () => {
+      toast.success("Department updated");
+      onDone();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -205,11 +225,15 @@ function EditRow({
       <form onSubmit={handleSubmit((v) => update.mutate(v))} className="grid gap-2 md:grid-cols-3">
         <div>
           <Input {...register("name")} placeholder="Name" />
-          {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+          {formState.errors.name && (
+            <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+          )}
         </div>
         <div>
           <Input {...register("slug")} placeholder="slug" />
-          {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+          {formState.errors.slug && (
+            <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+          )}
         </div>
         <Input {...register("description")} placeholder="Description" />
         <div className="md:col-span-3 flex justify-end gap-1">

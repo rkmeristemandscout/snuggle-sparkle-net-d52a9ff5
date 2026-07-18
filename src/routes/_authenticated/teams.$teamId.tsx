@@ -14,12 +14,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Trash2, UserPlus } from "lucide-react";
 
@@ -46,7 +56,8 @@ function TeamDetail() {
       const { data, error } = await supabase
         .from("teams")
         .select("id, name, slug, description, owner_id, organization_id")
-        .eq("id", teamId).maybeSingle();
+        .eq("id", teamId)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -56,8 +67,7 @@ function TeamDetail() {
   const canManage =
     !!team.data &&
     (team.data.owner_id === user?.id ||
-      (inSameOrg &&
-        (currentMembership?.role === "owner" || currentMembership?.role === "admin")));
+      (inSameOrg && (currentMembership?.role === "owner" || currentMembership?.role === "admin")));
 
   const members = useQuery({
     enabled: !!team.data,
@@ -73,7 +83,9 @@ function TeamDetail() {
       let profiles: Record<string, { full_name: string | null }> = {};
       if (ids.length) {
         const { data: profs } = await supabase
-          .from("profiles").select("id, full_name").in("id", ids);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
         profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       return (data ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
@@ -93,7 +105,9 @@ function TeamDetail() {
       let profiles: Record<string, { full_name: string | null }> = {};
       if (ids.length) {
         const { data: profs } = await supabase
-          .from("profiles").select("id, full_name").in("id", ids);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
         profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       return (data ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
@@ -134,7 +148,10 @@ function TeamDetail() {
   const [ownerCandidate, setOwnerCandidate] = useState<string>("");
   const transferOwner = useMutation({
     mutationFn: async (newOwner: string) => {
-      const { error } = await supabase.from("teams").update({ owner_id: newOwner }).eq("id", teamId);
+      const { error } = await supabase
+        .from("teams")
+        .update({ owner_id: newOwner })
+        .eq("id", teamId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -163,7 +180,9 @@ function TeamDetail() {
   const addMember = useMutation({
     mutationFn: async (userId: string) => {
       const { error } = await supabase.from("team_members").insert({
-        team_id: teamId, user_id: userId, role: "member",
+        team_id: teamId,
+        user_id: userId,
+        role: "member",
       });
       if (error) throw error;
     },
@@ -192,7 +211,9 @@ function TeamDetail() {
     return (
       <div className="rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold">Team not found</h2>
-        <Link to="/teams" className="mt-4 inline-block text-sm underline">Back to teams</Link>
+        <Link to="/teams" className="mt-4 inline-block text-sm underline">
+          Back to teams
+        </Link>
       </div>
     );
   }
@@ -203,7 +224,9 @@ function TeamDetail() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/teams" className="text-sm text-muted-foreground hover:underline">← All teams</Link>
+        <Link to="/teams" className="text-sm text-muted-foreground hover:underline">
+          ← All teams
+        </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">{team.data.name}</h1>
         <p className="text-sm text-muted-foreground">/{team.data.slug}</p>
       </div>
@@ -222,7 +245,9 @@ function TeamDetail() {
                     <div>
                       <p className="font-medium">
                         {m.profile?.full_name ?? m.user_id.slice(0, 8)}
-                        {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
+                        {isSelf && (
+                          <span className="ml-2 text-xs text-muted-foreground">(you)</span>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Joined {new Date(m.created_at).toLocaleDateString()}
@@ -231,8 +256,12 @@ function TeamDetail() {
                     <div className="flex items-center gap-2">
                       <Badge variant={m.role === "owner" ? "default" : "secondary"}>{m.role}</Badge>
                       {canManage && m.role !== "owner" && (
-                        <Button size="icon" variant="ghost" aria-label="Remove"
-                          onClick={() => removeMember.mutate(m.id)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label="Remove"
+                          onClick={() => removeMember.mutate(m.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
@@ -248,10 +277,14 @@ function TeamDetail() {
               <div className="flex-1">
                 <Label>Add organization member</Label>
                 <Select value={addUser} onValueChange={setAddUser}>
-                  <SelectTrigger><SelectValue placeholder="Select member…" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select member…" />
+                  </SelectTrigger>
                   <SelectContent>
                     {availableToAdd.length === 0 && (
-                      <SelectItem value="__none" disabled>No available members</SelectItem>
+                      <SelectItem value="__none" disabled>
+                        No available members
+                      </SelectItem>
                     )}
                     {availableToAdd.map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id}>
@@ -279,12 +312,16 @@ function TeamDetail() {
                 <div>
                   <Label htmlFor="name">Name</Label>
                   <Input id="name" {...register("name")} />
-                  {formState.errors.name && <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>}
+                  {formState.errors.name && (
+                    <p className="mt-1 text-xs text-destructive">{formState.errors.name.message}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="slug">Slug</Label>
                   <Input id="slug" {...register("slug")} />
-                  {formState.errors.slug && <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>}
+                  {formState.errors.slug && (
+                    <p className="mt-1 text-xs text-destructive">{formState.errors.slug.message}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="description">Description</Label>
@@ -310,7 +347,9 @@ function TeamDetail() {
               <div className="mt-4 flex items-end gap-2">
                 <div className="flex-1">
                   <Select value={ownerCandidate} onValueChange={setOwnerCandidate}>
-                    <SelectTrigger><SelectValue placeholder="Select member…" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select member…" />
+                    </SelectTrigger>
                     <SelectContent>
                       {(members.data ?? [])
                         .filter((m) => m.user_id !== team.data!.owner_id)
@@ -340,7 +379,9 @@ function TeamDetail() {
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="mt-4">Delete team</Button>
+                  <Button variant="destructive" className="mt-4">
+                    Delete team
+                  </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

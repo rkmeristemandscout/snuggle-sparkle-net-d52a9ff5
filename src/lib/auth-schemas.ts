@@ -35,7 +35,10 @@ export const profileSchema = z.object({
 export type ProfileValues = z.infer<typeof profileSchema>;
 
 export const slugSchema = z
-  .string().trim().min(2).max(40)
+  .string()
+  .trim()
+  .min(2)
+  .max(40)
   .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only");
 
 export const orgSchema = z.object({

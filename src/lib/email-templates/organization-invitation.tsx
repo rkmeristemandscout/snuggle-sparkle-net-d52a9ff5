@@ -35,7 +35,7 @@ export interface OrganizationInvitationProps {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let RE: any = {};
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   RE = require("@react-email/components");
 } catch {
   RE = {};
@@ -52,7 +52,11 @@ const Section = RE.Section ?? ((p: any) => <section {...p} />);
 const Hr = RE.Hr ?? ((p: any) => <hr {...p} />);
 const Link = RE.Link ?? ((p: any) => <a {...p} />);
 
-const main = { backgroundColor: "#ffffff", fontFamily: "Inter, Arial, sans-serif", color: "#0f172a" };
+const main = {
+  backgroundColor: "#ffffff",
+  fontFamily: "Inter, Arial, sans-serif",
+  color: "#0f172a",
+};
 const container = { padding: "32px 28px", maxWidth: 560, margin: "0 auto" };
 const h1 = { fontSize: "22px", fontWeight: 600, margin: "0 0 12px" };
 const p = { fontSize: "15px", lineHeight: "22px", margin: "0 0 16px" };
@@ -79,8 +83,8 @@ function Email({ organizationName, inviteUrl, inviterName }: OrganizationInvitat
         <Container style={container}>
           <Heading style={h1}>You&apos;ve been invited to {organizationName}</Heading>
           <Text style={p}>
-            {invitedBy} invited you to collaborate in <strong>{organizationName}</strong> on Multi-tenant
-            SaaS. Accept the invitation to get access to your workspace.
+            {invitedBy} invited you to collaborate in <strong>{organizationName}</strong> on
+            Multi-tenant SaaS. Accept the invitation to get access to your workspace.
           </Text>
           <Section style={{ margin: "24px 0" }}>
             <Button href={inviteUrl} style={btn}>
@@ -97,7 +101,8 @@ function Email({ organizationName, inviteUrl, inviterName }: OrganizationInvitat
           <Hr style={hr} />
           <Text style={muted}>This invitation expires in 14 days.</Text>
           <Text style={muted}>
-            If you weren&apos;t expecting this email, you can safely ignore it — no account will be created.
+            If you weren&apos;t expecting this email, you can safely ignore it — no account will be
+            created.
           </Text>
         </Container>
       </Body>

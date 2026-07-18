@@ -54,14 +54,24 @@ function ResetPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="password">New password</Label>
-              <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                {...register("password")}
+              />
               {formState.errors.password && (
                 <p className="mt-1 text-xs text-destructive">{formState.errors.password.message}</p>
               )}
             </div>
             <div>
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input id="confirm" type="password" autoComplete="new-password" {...register("confirm")} />
+              <Input
+                id="confirm"
+                type="password"
+                autoComplete="new-password"
+                {...register("confirm")}
+              />
               {formState.errors.confirm && (
                 <p className="mt-1 text-xs text-destructive">{formState.errors.confirm.message}</p>
               )}
