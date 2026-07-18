@@ -682,7 +682,7 @@ function MembersPage() {
       </div>
 
       {canManage && <EmailDeliveryBanner />}
-      {canManage && <EmailLogsPanel orgId={currentOrgId} />
+      {canManage && <EmailLogsPanel orgId={currentOrgId} />}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
