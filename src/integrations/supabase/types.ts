@@ -421,6 +421,7 @@ export type Database = {
       organization_invitations: {
         Row: {
           accepted_at: string | null
+          assigned_role_key: string | null
           created_at: string
           email: string
           expires_at: string
@@ -434,6 +435,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          assigned_role_key?: string | null
           created_at?: string
           email: string
           expires_at?: string
@@ -447,6 +449,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          assigned_role_key?: string | null
           created_at?: string
           email?: string
           expires_at?: string
@@ -471,29 +474,42 @@ export type Database = {
       organization_members: {
         Row: {
           created_at: string
+          department_id: string | null
           id: string
           organization_id: string
           role: Database["public"]["Enums"]["org_role"]
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           id?: string
           organization_id: string
           role?: Database["public"]["Enums"]["org_role"]
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           id?: string
           organization_id?: string
           role?: Database["public"]["Enums"]["org_role"]
+          status?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
@@ -1074,9 +1090,11 @@ export type Database = {
           _email: string
           _org: string
           _role?: Database["public"]["Enums"]["org_role"]
+          _role_key?: string
         }
         Returns: {
           accepted_at: string | null
+          assigned_role_key: string | null
           created_at: string
           email: string
           expires_at: string
@@ -1154,6 +1172,23 @@ export type Database = {
         Returns: boolean
       }
       leave_organization: { Args: { _org: string }; Returns: undefined }
+      list_org_members: {
+        Args: { _org: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          department_id: string
+          department_name: string
+          email: string
+          full_name: string
+          id: string
+          last_sign_in_at: string
+          role: Database["public"]["Enums"]["org_role"]
+          status: string
+          team_names: string[]
+          user_id: string
+        }[]
+      }
       log_auth_event: {
         Args: { _action: string; _org?: string }
         Returns: undefined
@@ -1185,6 +1220,7 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: {
           accepted_at: string | null
+          assigned_role_key: string | null
           created_at: string
           email: string
           expires_at: string
@@ -1205,6 +1241,10 @@ export type Database = {
       }
       revoke_api_key: { Args: { _id: string }; Returns: undefined }
       run_background_jobs: { Args: never; Returns: Json }
+      set_member_status: {
+        Args: { _member_id: string; _status: string }
+        Returns: undefined
+      }
       shares_org_with: { Args: { _other: string }; Returns: boolean }
       team_org: { Args: { _team: string }; Returns: string }
       write_audit_log: {
