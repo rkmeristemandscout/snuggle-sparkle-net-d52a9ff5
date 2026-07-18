@@ -234,6 +234,7 @@ function MembersPage() {
         lastActive: null,
         avatarUrl: null,
         token: i.token,
+        expiresAt: i.expires_at,
       };
     });
     return [...memberRows, ...inviteRows];
