@@ -11,7 +11,7 @@ import {
   MailX, Check, X as XIcon,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { getInvitationEmailStatus } from "@/lib/invitations.functions";
+import { getInvitationEmailStatus, sendTestInvitationEmail } from "@/lib/invitations.functions";
 import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
 const OrgInvitationEmail = OrgInvitationTemplate.component;
 
