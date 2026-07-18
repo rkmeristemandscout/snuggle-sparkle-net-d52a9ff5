@@ -822,11 +822,11 @@ function MembersPage() {
                       {r.kind === "invitation" && bulkStatuses[r.id] && (() => {
                         const s = bulkStatuses[r.id];
                         const map = {
-                          queued: { label: "Queued", cls: "bg-muted text-muted-foreground", icon: null as React.ReactNode },
+                          queued: { label: "Queued", cls: "bg-muted text-muted-foreground", icon: null },
                           regenerating: { label: "Regenerating…", cls: "bg-primary/10 text-primary", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
                           success: { label: "Refreshed", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", icon: <Check className="h-3 w-3" /> },
                           failed: { label: "Failed", cls: "bg-destructive/15 text-destructive", icon: <XIcon className="h-3 w-3" /> },
-                        }[s];
+                        } as const;
                         return (
                           <span className={`ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${map.cls}`}>
                             {map.icon}
