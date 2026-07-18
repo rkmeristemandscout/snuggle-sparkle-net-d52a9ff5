@@ -1063,7 +1063,7 @@ function MembersPage() {
               </TableBody>
             </Table>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -1076,8 +1076,49 @@ function MembersPage() {
             >
               <Copy className="mr-2 h-4 w-4" /> Copy failures
             </Button>
-            <Button onClick={() => setBulkFailuresOpen(false)}>Close</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const escape = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
+                const header = "email,reason\n";
+                const body = bulkFailures
+                  .map((f) => `${escape(f.email)},${escape(f.reason)}`)
+                  .join("\n");
+                const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                a.href = url;
+                a.download = `failed-invitations-${ts}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast.success("CSV downloaded");
+              }}
+              disabled={bulkFailures.length === 0}
+            >
+              Download CSV
+            </Button>
+            <Button
+              onClick={() => {
+                const ids = bulkFailures.map((f) => f.id);
+                if (ids.length === 0) return;
+                setBulkFailuresOpen(false);
+                bulkRefresh.mutate(ids);
+              }}
+              disabled={bulkRefresh.isPending || bulkFailures.length === 0}
+            >
+              {bulkRefresh.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Retry failed ({bulkFailures.length})
+            </Button>
+            <Button variant="ghost" onClick={() => setBulkFailuresOpen(false)}>Close</Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </div>
