@@ -150,6 +150,13 @@ function MembersPage() {
   const [confirmRefreshId, setConfirmRefreshId] = useState<string | null>(null);
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkStatuses, setBulkStatuses] = useState<
+    Record<string, "queued" | "regenerating" | "success" | "failed">
+  >({});
+  const [bulkFailures, setBulkFailures] = useState<
+    { id: string; email: string; reason: string }[]
+  >([]);
+  const [bulkFailuresOpen, setBulkFailuresOpen] = useState(false);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
   const emailStatusQuery = useQuery({
