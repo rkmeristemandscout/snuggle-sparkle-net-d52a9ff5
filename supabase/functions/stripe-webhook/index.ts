@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Supabase Edge Function: stripe-webhook
 // Verifies Stripe signatures and syncs subscriptions/payments/invoices/usage_metrics.
 import Stripe from "https://esm.sh/stripe@17.5.0?target=deno";

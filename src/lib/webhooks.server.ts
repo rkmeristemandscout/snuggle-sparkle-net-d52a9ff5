@@ -27,6 +27,6 @@ export interface WebhookGuardResult {
 
 export function extractRequestId(request: Request): string {
   const incoming = request.headers.get("x-request-id");
-  if (incoming && /^[a-zA-Z0-9_\-]{8,128}$/.test(incoming)) return incoming;
+  if (incoming && /^[a-zA-Z0-9_-]{8,128}$/.test(incoming)) return incoming;
   return `req_${crypto.randomUUID().replace(/-/g, "")}`;
 }

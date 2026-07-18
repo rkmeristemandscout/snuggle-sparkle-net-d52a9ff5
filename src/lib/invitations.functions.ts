@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Server-side invitation email delivery.
 // Gracefully returns { sent: false, reason: 'not_configured' } when no
 // email domain / transactional template registry exists yet, so the

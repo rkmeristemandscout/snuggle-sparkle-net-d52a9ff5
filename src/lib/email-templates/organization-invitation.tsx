@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Organization invitation email template.
 //
 // This file is the source of truth for the "organization-invitation"
@@ -32,7 +33,7 @@ export interface OrganizationInvitationProps {
 // React Email components are optional at build time — resolve them if
 // installed, otherwise fall back to plain intrinsic elements so the file
 // still compiles and previews structurally.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let RE: any = {};
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
