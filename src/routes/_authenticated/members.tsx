@@ -857,15 +857,10 @@ function PreviewEmailDialog({
           </div>
         </div>
 
-        <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
-          <div>
-            <span className="font-medium text-muted-foreground">Subject:</span>{" "}
-            <span className="font-mono">{subject}</span>
-          </div>
-          <div>
-            <span className="font-medium text-muted-foreground">Preview text:</span>{" "}
-            <span className="font-mono">{previewText}</span>
-          </div>
+        <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-2">
+          <CopyableRow label="Subject" value={subject} />
+          <CopyableRow label="Preview text" value={previewText} />
+          <CopyableRow label="CTA link" value={inviteUrl} />
         </div>
 
         <div className="rounded-lg border bg-white overflow-hidden">
