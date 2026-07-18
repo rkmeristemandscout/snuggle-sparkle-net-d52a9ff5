@@ -439,43 +439,67 @@ function MembersPage() {
     mutationFn: async (ids: string[]) => {
       const results: { email: string; url: string }[] = [];
       const failures: string[] = [];
-      for (const id of ids) {
+      setBulkProgress({ done: 0, total: ids.length });
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
         const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
-        if (error) { failures.push(id); continue; }
-        const { data: row } = await supabase
-          .from("organization_invitations")
-          .select("id, email, token")
-          .eq("id", id)
-          .single();
-        if (row?.token) {
-          results.push({
-            email: row.email ?? "",
-            url: `${window.location.origin}/join/${row.token}`,
-          });
-        } else {
+        if (error) {
           failures.push(id);
+        } else {
+          const { data: row } = await supabase
+            .from("organization_invitations")
+            .select("id, email, token")
+            .eq("id", id)
+            .single();
+          if (row?.token) {
+            results.push({
+              email: row.email ?? "",
+              url: `${window.location.origin}/join/${row.token}`,
+            });
+          } else {
+            failures.push(id);
+          }
         }
+        setBulkProgress({ done: i + 1, total: ids.length });
       }
-      return { results, failures };
+      return { results, failures, total: ids.length };
     },
-    onSuccess: async ({ results, failures }) => {
+    onSuccess: async ({ results, failures, total }) => {
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
-      if (results.length === 0) {
-        toast.error("Couldn't refresh selected invitations");
+      const successCount = results.length;
+      const failCount = failures.length;
+      if (successCount === 0) {
+        toast.error(`Bulk refresh failed`, {
+          description: `0 of ${total} regenerated — ${failCount} failed.`,
+        });
+        setBulkProgress(null);
         return;
       }
       const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
+      const summary = `${successCount} of ${total} regenerated${failCount ? `, ${failCount} failed` : ""}.`;
       try {
         await navigator.clipboard.writeText(text);
-        toast.success(`Refreshed ${results.length} invitation${results.length === 1 ? "" : "s"}`, {
-          description: `New links copied to clipboard${failures.length ? ` — ${failures.length} failed` : ""}.`,
-        });
+        if (failCount > 0) {
+          toast.warning(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
+            description: `${summary} New links copied to clipboard.`,
+          });
+        } else {
+          toast.success(`Refreshed ${successCount} invitation${successCount === 1 ? "" : "s"}`, {
+            description: `${summary} New links copied to clipboard.`,
+          });
+        }
       } catch {
-        toast.warning("Refreshed, but clipboard blocked", { description: "Copy the links manually from the table." });
+        toast.warning("Refreshed, but clipboard blocked", {
+          description: `${summary} Copy the links manually from the table.`,
+        });
       }
       setSelectedInviteIds(new Set());
+      setBulkProgress(null);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setBulkProgress(null);
+    },
   });
 
 
