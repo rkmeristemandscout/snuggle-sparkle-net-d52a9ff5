@@ -587,6 +587,13 @@ function MembersPage() {
         pending={invite.isPending}
         onSubmit={(v) => invite.mutate(v)}
       />
+
+      <PreviewEmailDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        defaultOrgName={currentMembership?.organization.name ?? "Acme Inc."}
+        defaultInviterName={session?.user?.user_metadata?.full_name ?? "Jane Doe"}
+      />
     </div>
   );
 }
