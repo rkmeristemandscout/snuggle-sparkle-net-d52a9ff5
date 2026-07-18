@@ -530,6 +530,16 @@ function MembersPage() {
                       >
                         {r.status}
                       </Badge>
+                      {r.kind === "invitation" && r.token && !emailConfigured && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2 h-6 px-2 text-xs"
+                          onClick={() => copyInviteLink(r.token!)}
+                        >
+                          <Copy className="mr-1 h-3 w-3" /> Copy link
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.department}</TableCell>
                     <TableCell className="text-muted-foreground">
