@@ -162,34 +162,21 @@ function MembersPage() {
   const invite = useMutation({
     mutationFn: async (v: InviteValues) => {
       if (!currentOrgId || !user) throw new Error("Missing context");
-      const { data: existing } = await supabase
-        .from("organization_invitations")
-        .select("id")
-        .eq("organization_id", currentOrgId)
-        .ilike("email", v.email)
-        .is("accepted_at", null)
-        .is("rejected_at", null)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-      if (existing) throw new Error("An active invitation already exists for this email");
-
-      const { data, error } = await supabase
-        .from("organization_invitations")
-        .insert({
-          organization_id: currentOrgId,
-          email: v.email,
-          role: v.role,
-          invited_by: user.id,
-        })
-        .select("token")
-        .single();
+      const { data, error } = await supabase.rpc("create_invitation", {
+        _org: currentOrgId,
+        _email: v.email,
+        _role: v.role,
+      });
       if (error) throw error;
-      return data.token as string;
+      const row = Array.isArray(data) ? data[0] : data;
+      return row?.token as string;
     },
     onSuccess: (token) => {
       const url = `${window.location.origin}/join/${token}`;
       navigator.clipboard?.writeText(url).catch(() => {});
-      toast.success("Invitation sent", { description: "Invite link copied to clipboard" });
+      toast.success("Invitation created", {
+        description: "Invite link copied to clipboard. Share it with the invitee — email delivery isn't configured yet.",
+      });
       setInviteOpen(false);
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
     },
