@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -988,17 +988,62 @@ function PreviewEmailDialog({
   );
 }
 
+function fallbackCopy(value: string): boolean {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, value.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function CopyableRow({ label, value }: { label: string; value: string }) {
-  const onCopy = () => {
-    navigator.clipboard.writeText(value).then(
-      () => toast.success(`${label} copied`),
-      () => toast.error(`Couldn't copy ${label.toLowerCase()}`)
-    );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const onCopy = async () => {
+    const success = `${label} copied to clipboard`;
+    const failure = `Couldn't copy ${label.toLowerCase()}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        toast.success(success);
+        return;
+      }
+      throw new Error("clipboard-unavailable");
+    } catch {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+      if (fallbackCopy(value)) {
+        toast.success(success, { description: "Copied via fallback." });
+      } else {
+        toast.error(failure, {
+          description: "Text is selected — press Ctrl/Cmd+C to copy manually.",
+        });
+      }
+    }
   };
   return (
     <div className="flex items-start gap-2">
       <span className="font-medium text-muted-foreground shrink-0">{label}:</span>
-      <span className="font-mono break-all flex-1">{value}</span>
+      <input
+        ref={inputRef}
+        readOnly
+        value={value}
+        onFocus={(e) => e.currentTarget.select()}
+        className="font-mono break-all flex-1 bg-transparent outline-none border-none p-0 text-sm"
+        aria-label={label}
+      />
       <Button
         type="button"
         variant="ghost"
