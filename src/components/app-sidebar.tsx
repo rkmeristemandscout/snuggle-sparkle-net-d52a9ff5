@@ -22,6 +22,7 @@ export function AppSidebar() {
     { to: "/organizations", label: "Organizations", icon: Building2, show: true },
     { to: "/teams", label: "Teams", icon: Users, show: can(["team.view", "team.create"]) },
     { to: "/departments", label: "Departments", icon: Boxes, show: can("department.view") },
+    { to: "/members", label: "Members", icon: UsersRound, show: true },
     { to: "/invitations", label: "Invitations", icon: Mail, show: can("invitation.view") },
     { to: "/roles", label: "Roles", icon: ShieldCheck, show: can("org.manage_users") || isSuperAdmin },
     { to: "/api-keys", label: "API Keys", icon: KeyRound, show: can("org.manage_api_keys") },
