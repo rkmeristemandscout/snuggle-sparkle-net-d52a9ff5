@@ -742,7 +742,7 @@ function MembersPage() {
                     aria-label="Select all pending invitations"
                     checked={allPendingSelected}
                     onCheckedChange={(v) => toggleSelectAllPending(!!v)}
-                    disabled={pendingInviteRows.length === 0}
+                    disabled={pendingInviteRows.length === 0 || bulkRefresh.isPending}
                   />
                 </TableHead>
               )}
