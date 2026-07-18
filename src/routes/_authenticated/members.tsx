@@ -776,11 +776,13 @@ function PreviewEmailDialog({
   onOpenChange,
   defaultOrgName,
   defaultInviterName,
+  emailConfigured,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultOrgName: string;
   defaultInviterName: string;
+  emailConfigured: boolean;
 }) {
   const [orgName, setOrgName] = useState(defaultOrgName);
   const [inviterName, setInviterName] = useState(defaultInviterName);
@@ -789,6 +791,27 @@ function PreviewEmailDialog({
       ? `${window.location.origin}/invitations/accept?token=preview-token-123`
       : "https://example.com/invitations/accept?token=preview-token-123"
   );
+  const [testEmail, setTestEmail] = useState("");
+
+  const sendTest = useServerFn(sendTestInvitationEmail);
+  const testMutation = useMutation({
+    mutationFn: (email: string) =>
+      sendTest({ data: { email, organizationName: orgName, inviterName, inviteUrl } }),
+    onSuccess: (res) => {
+      if (res?.sent) {
+        toast.success("Test email sent", { description: `Delivered to ${testEmail}` });
+      } else if (res?.reason === "suppressed") {
+        toast.error("Recipient is suppressed", {
+          description: "This address previously bounced, complained, or unsubscribed.",
+        });
+      } else if (res?.reason === "not_configured") {
+        toast.error("Email delivery is not configured");
+      } else {
+        toast.error("Couldn't send test email", { description: res?.detail });
+      }
+    },
+    onError: (err: any) => toast.error("Couldn't send test email", { description: err?.message }),
+  });
 
   useEffect(() => {
     if (open) {
