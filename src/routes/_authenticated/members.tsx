@@ -612,14 +612,27 @@ function MembersPage() {
                         {r.status}
                       </Badge>
                       {r.kind === "invitation" && r.token && !emailConfigured && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="ml-2 h-6 px-2 text-xs"
-                          onClick={() => copyInviteLink(r.token!)}
-                        >
-                          <Copy className="mr-1 h-3 w-3" /> Copy link
-                        </Button>
+                        <div className="mt-1 inline-flex flex-wrap items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => copyInviteLink(r.token!)}
+                          >
+                            <Copy className="mr-1 h-3 w-3" /> Copy link
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => resend.mutate(r.id)}
+                            disabled={resend.isPending}
+                            title="Regenerate token and copy the new link"
+                          >
+                            <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
+                            Refresh
+                          </Button>
+                        </div>
                       )}
                       {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
                         const t = timeUntil(r.expiresAt);
