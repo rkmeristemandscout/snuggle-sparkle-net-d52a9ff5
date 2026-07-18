@@ -601,6 +601,61 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: str
   );
 }
 
+function EmailDeliveryBanner() {
+  const fetchStatus = useServerFn(getInvitationEmailStatus);
+  const status = useQuery({
+    queryKey: ["members-page", "email-status"],
+    queryFn: () => fetchStatus(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (status.isLoading || !status.data || status.data.configured) return null;
+  const { checks } = status.data;
+
+  const items = [
+    { ok: checks.lovableKey, label: "Server email API key available" },
+    { ok: checks.emailHelper, label: "Verified sender domain configured" },
+    { ok: checks.invitationTemplate, label: "Invitation email template registered" },
+  ];
+
+  return (
+    <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg bg-amber-500/15 p-2 text-amber-700 dark:text-amber-300">
+          <MailX className="h-5 w-5" />
+        </div>
+        <div className="flex-1 space-y-2">
+          <div>
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Email delivery is not configured
+            </p>
+            <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
+              Invitations are still created and the join link is copied to your clipboard,
+              but no email is sent automatically. Complete the checklist below to enable delivery.
+            </p>
+          </div>
+          <ul className="space-y-1 text-xs text-amber-900 dark:text-amber-100">
+            {items.map((it) => (
+              <li key={it.label} className="flex items-center gap-2">
+                {it.ok ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <XIcon className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                )}
+                <span className={it.ok ? "line-through opacity-70" : ""}>{it.label}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-amber-800/80 dark:text-amber-200/70">
+            Once a sender domain is set up in Cloud → Emails, the invitation template
+            activates automatically and this banner disappears.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InviteDialog({
   open, onOpenChange, pending, onSubmit,
 }: {
