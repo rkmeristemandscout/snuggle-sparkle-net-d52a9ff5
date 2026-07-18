@@ -561,14 +561,14 @@ function MembersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {r.kind === "invitation" && r.token && (
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  navigator.clipboard.writeText(`${window.location.origin}/join/${r.token}`);
-                                  toast.success("Invite link copied");
-                                }}
-                              >
-                                <Copy className="mr-2 h-4 w-4" /> Copy invite link
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => copyInviteLink(r.token!)}>
+                                  <Copy className="mr-2 h-4 w-4" /> Copy invite link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => copyInviteToken(r.token!)}>
+                                  <Copy className="mr-2 h-4 w-4" /> Copy invite token
+                                </DropdownMenuItem>
+                              </>
                             )}
                             {r.kind === "invitation" && (
                               <>
