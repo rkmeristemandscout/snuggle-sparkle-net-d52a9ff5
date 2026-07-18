@@ -136,30 +136,15 @@ export const sendTestInvitationEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((v: unknown) => testSchema.parse(v))
   .handler(async ({ data }): Promise<SendResult> => {
-    try {
-      const modPath = "@/lib/email-templates/send-email";
-      const mod: any = await import(/* @vite-ignore */ modPath).catch(() => null);
-      if (!mod?.sendTemplateEmail) {
-        return { sent: false, reason: "not_configured" };
-      }
-      const result = await mod.sendTemplateEmail("organization-invitation", data.email, {
-        templateData: {
-          organizationName: data.organizationName,
-          inviteUrl: data.inviteUrl,
-          inviterName: data.inviterName,
-        },
-        idempotencyKey: `org-invite-test-${data.email}-${Date.now()}`,
-      });
-      if (result?.sent) return { sent: true };
-      if (result?.reason === "recipient_suppressed") return { sent: false, reason: "suppressed" };
-      return { sent: false, reason: "failed" };
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
-      if (code === "domain_not_verified" || code === "emails_disabled") {
-        return { sent: false, reason: "not_configured", detail: code };
-      }
-      return { sent: false, reason: "failed", detail: err?.message };
-    }
+    return await sendViaResend({
+      to: data.email,
+      subject: `You're invited to join ${data.organizationName}`,
+      html: renderInviteHtml({
+        orgName: data.organizationName,
+        inviteUrl: data.inviteUrl,
+        inviter: data.inviterName,
+      }),
+    });
   });
 
 // List recent email delivery events for invitations in a given organization.
