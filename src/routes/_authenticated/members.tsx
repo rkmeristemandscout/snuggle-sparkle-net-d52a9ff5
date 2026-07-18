@@ -418,50 +418,7 @@ function MembersPage() {
               organizationId: currentOrgId,
               inviterName: user?.email ?? undefined,
             },
-  });
-
-  const bulkRefresh = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const results: { email: string; url: string }[] = [];
-      const failures: string[] = [];
-      for (const id of ids) {
-        const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
-        if (error) { failures.push(id); continue; }
-        const { data: row } = await supabase
-          .from("organization_invitations")
-          .select("id, email, token")
-          .eq("id", id)
-          .single();
-        if (row?.token) {
-          results.push({
-            email: row.email ?? "",
-            url: `${window.location.origin}/join/${row.token}`,
-          });
-        } else {
-          failures.push(id);
-        }
-      }
-      return { results, failures };
-    },
-    onSuccess: async ({ results, failures }) => {
-      qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
-      if (results.length === 0) {
-        toast.error("Couldn't refresh selected invitations");
-        return;
-      }
-      const text = results.map((r) => (r.email ? `${r.email}\t${r.url}` : r.url)).join("\n");
-      try {
-        await navigator.clipboard.writeText(text);
-        toast.success(`Refreshed ${results.length} invitation${results.length === 1 ? "" : "s"}`, {
-          description: `New links copied to clipboard${failures.length ? ` — ${failures.length} failed` : ""}.`,
         });
-      } catch {
-        toast.warning("Refreshed, but clipboard blocked", { description: "Copy the links manually from the table." });
-      }
-      setSelectedInviteIds(new Set());
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
           if (result?.sent) {
             toast.success("Invitation email resent", { description: row.email });
             return;
