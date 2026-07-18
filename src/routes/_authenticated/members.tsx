@@ -1453,7 +1453,7 @@ function PreviewEmailDialog({
         toast.error("Couldn't send test email", { description: res?.detail });
       }
     },
-    onError: (err: any) => toast.error("Couldn't send test email", { description: err?.message }),
+    onError: (err: Error) => toast.error("Couldn't send test email", { description: err?.message }),
   });
 
   useEffect(() => {
