@@ -927,3 +927,28 @@ function PreviewEmailDialog({
     </Dialog>
   );
 }
+
+function CopyableRow({ label, value }: { label: string; value: string }) {
+  const onCopy = () => {
+    navigator.clipboard.writeText(value).then(
+      () => toast.success(`${label} copied`),
+      () => toast.error(`Couldn't copy ${label.toLowerCase()}`)
+    );
+  };
+  return (
+    <div className="flex items-start gap-2">
+      <span className="font-medium text-muted-foreground shrink-0">{label}:</span>
+      <span className="font-mono break-all flex-1">{value}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 shrink-0"
+        onClick={onCopy}
+        aria-label={`Copy ${label.toLowerCase()}`}
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
