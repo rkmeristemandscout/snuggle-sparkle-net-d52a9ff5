@@ -198,7 +198,10 @@ function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6 -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8 min-h-[calc(100vh-4rem)] bg-cover bg-center bg-no-repeat bg-fixed relative before:absolute before:inset-0 before:bg-background/80 before:backdrop-blur-sm before:-z-0 [&>*]:relative [&>*]:z-10"
+      style={{ backgroundImage: `url(/__l5e/assets-v1/9acbb5d2-280e-47ef-922a-96ed668fe807/dashboard-bg.jpg)` }}
+    >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
