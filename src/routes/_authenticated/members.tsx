@@ -853,6 +853,65 @@ function MembersPage() {
         defaultInviterName={(user?.user_metadata?.full_name as string | undefined) ?? "Jane Doe"}
         emailConfigured={emailConfigured}
       />
+
+      <AlertDialog
+        open={confirmRefreshId !== null}
+        onOpenChange={(v) => { if (!v) setConfirmRefreshId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate invitation link?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This immediately invalidates the current invite link and issues a new
+              one with a fresh expiration. Anyone holding the old link will no
+              longer be able to use it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRefreshId) resend.mutate(confirmRefreshId);
+                setConfirmRefreshId(null);
+              }}
+            >
+              Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmBulkOpen}
+        onOpenChange={setConfirmBulkOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Refresh {selectedCount} invitation{selectedCount === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each selected invitation gets a brand-new token and expiration.
+              Previously shared links stop working. The new links are copied
+              to your clipboard as a list you can paste into any tool.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const ids = pendingInviteRows
+                  .filter((r) => selectedInviteIds.has(r.id))
+                  .map((r) => r.id);
+                if (ids.length) bulkRefresh.mutate(ids);
+                setConfirmBulkOpen(false);
+              }}
+            >
+              Regenerate &amp; copy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
