@@ -838,30 +838,42 @@ function MembersPage() {
                           </span>
                         );
                       })()}
-                      {r.kind === "invitation" && r.token && !emailConfigured && (
-                        <div className="mt-1 inline-flex flex-wrap items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => copyInviteLink(r.token!)}
-                            disabled={bulkRefresh.isPending}
-                          >
-                            <Copy className="mr-1 h-3 w-3" /> Copy link
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => setConfirmRefreshId(r.id)}
-                            disabled={resend.isPending || bulkRefresh.isPending}
-                            title="Regenerate token and copy the new link"
-                          >
-                            <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
-                            Refresh
-                          </Button>
-                        </div>
-                      )}
+                      {r.kind === "invitation" && r.token && !emailConfigured && (() => {
+                        const bs = bulkStatuses[r.id];
+                        // Only allow copy when there's no in-flight status, or the last status is 'success'
+                        const copyBlocked = !!bs && bs !== "success";
+                        const copyTitle = copyBlocked
+                          ? bs === "failed"
+                            ? "Regeneration failed — refresh again before copying"
+                            : "Waiting for regeneration to complete"
+                          : "Copy invite link";
+                        return (
+                          <div className="mt-1 inline-flex flex-wrap items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyInviteLink(r.token!)}
+                              disabled={bulkRefresh.isPending || copyBlocked}
+                              title={copyTitle}
+                            >
+                              <Copy className="mr-1 h-3 w-3" /> Copy link
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRefreshId(r.id)}
+                              disabled={resend.isPending || bulkRefresh.isPending}
+                              title="Regenerate token and copy the new link"
+                            >
+                              <RefreshCw className={`mr-1 h-3 w-3 ${resend.isPending ? "animate-spin" : ""}`} />
+                              Refresh
+                            </Button>
+                          </div>
+                        );
+                      })()}
+
                       {r.kind === "invitation" && !emailConfigured && r.expiresAt && (() => {
                         const t = timeUntil(r.expiresAt);
                         return (
