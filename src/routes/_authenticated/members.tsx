@@ -149,6 +149,7 @@ function MembersPage() {
   const [selectedInviteIds, setSelectedInviteIds] = useState<Set<string>>(new Set());
   const [confirmRefreshId, setConfirmRefreshId] = useState<string | null>(null);
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
   const emailStatusQuery = useQuery({
