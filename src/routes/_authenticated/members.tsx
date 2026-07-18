@@ -642,30 +642,56 @@ function MembersPage() {
         })}
       </div>
 
-      {canManage && selectedCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-          <div className="text-sm">
-            <span className="font-medium">{selectedCount}</span> pending invitation{selectedCount === 1 ? "" : "s"} selected
+      {canManage && (selectedCount > 0 || bulkRefresh.isPending) && (
+        <div className="rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm">
+              {bulkRefresh.isPending && bulkProgress ? (
+                <span>
+                  Regenerating <span className="font-medium">{bulkProgress.done}</span> of{" "}
+                  <span className="font-medium">{bulkProgress.total}</span> invitation
+                  {bulkProgress.total === 1 ? "" : "s"}…
+                </span>
+              ) : (
+                <span>
+                  <span className="font-medium">{selectedCount}</span> pending invitation
+                  {selectedCount === 1 ? "" : "s"} selected
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedInviteIds(new Set())}
+                disabled={bulkRefresh.isPending}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setConfirmBulkOpen(true)}
+                disabled={bulkRefresh.isPending || selectedCount === 0}
+              >
+                {bulkRefresh.isPending ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                )}
+                {bulkRefresh.isPending && bulkProgress
+                  ? `Refreshing ${bulkProgress.done}/${bulkProgress.total}…`
+                  : `Refresh & copy ${selectedCount} link${selectedCount === 1 ? "" : "s"}`}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelectedInviteIds(new Set())}
-            >
-              Clear
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setConfirmBulkOpen(true)}
-              disabled={bulkRefresh.isPending}
-            >
-              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${bulkRefresh.isPending ? "animate-spin" : ""}`} />
-              {bulkRefresh.isPending && bulkProgress
-                ? `Refreshing ${bulkProgress.done}/${bulkProgress.total}…`
-                : `Refresh & copy ${selectedCount} link${selectedCount === 1 ? "" : "s"}`}
-            </Button>
-          </div>
+          {bulkRefresh.isPending && bulkProgress && bulkProgress.total > 0 && (
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all duration-200"
+                style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
