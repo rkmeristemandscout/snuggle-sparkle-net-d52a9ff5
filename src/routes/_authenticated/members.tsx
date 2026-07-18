@@ -123,6 +123,7 @@ function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const members = useQuery({
     enabled: !!currentOrgId,
