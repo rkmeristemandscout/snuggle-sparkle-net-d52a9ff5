@@ -1010,7 +1010,7 @@ function fallbackCopy(value: string): boolean {
 }
 
 function CopyableRow({ label, value }: { label: string; value: string }) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const onCopy = async () => {
     const success = `${label} copied to clipboard`;
     const failure = `Couldn't copy ${label.toLowerCase()}`;
