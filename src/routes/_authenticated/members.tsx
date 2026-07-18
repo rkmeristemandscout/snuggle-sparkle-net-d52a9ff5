@@ -661,7 +661,9 @@ function MembersPage() {
               disabled={bulkRefresh.isPending}
             >
               <RefreshCw className={`mr-2 h-3.5 w-3.5 ${bulkRefresh.isPending ? "animate-spin" : ""}`} />
-              Refresh &amp; copy {selectedCount} link{selectedCount === 1 ? "" : "s"}
+              {bulkRefresh.isPending && bulkProgress
+                ? `Refreshing ${bulkProgress.done}/${bulkProgress.total}…`
+                : `Refresh & copy ${selectedCount} link${selectedCount === 1 ? "" : "s"}`}
             </Button>
           </div>
         </div>
