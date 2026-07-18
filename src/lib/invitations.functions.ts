@@ -88,7 +88,7 @@ async function sendViaResend(opts: {
         "X-Connection-Api-Key": resendKey,
       },
       body: JSON.stringify({
-        from: opts.from ?? "Multi-tenant SaaS <onboarding@resend.dev>",
+        from: opts.from ?? process.env.RESEND_FROM_EMAIL ?? "Multi-tenant SaaS <onboarding@resend.dev>",
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
