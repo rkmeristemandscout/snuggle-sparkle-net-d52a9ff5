@@ -50,7 +50,9 @@ function InvitationsInbox() {
       let orgs: Record<string, { name: string; slug: string }> = {};
       if (orgIds.length) {
         const { data: os } = await supabase
-          .from("organizations").select("id, name, slug").in("id", orgIds);
+          .from("organizations")
+          .select("id, name, slug")
+          .in("id", orgIds);
         orgs = Object.fromEntries((os ?? []).map((o) => [o.id, o]));
       }
       return rows.map((r) => ({ ...r, organization: orgs[r.organization_id] ?? null }));
@@ -112,20 +114,32 @@ function InvitationsInbox() {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant={
-                        status === "pending" ? "secondary"
-                        : status === "accepted" ? "default"
-                        : "destructive"
+                        status === "pending"
+                          ? "secondary"
+                          : status === "accepted"
+                            ? "default"
+                            : "destructive"
                       }
                     >
                       {status}
                     </Badge>
                     {status === "pending" && (
                       <>
-                        <Button size="sm" onClick={() => accept.mutate(inv.token)}
-                          disabled={accept.isPending}>Accept</Button>
-                        <Button size="sm" variant="outline"
+                        <Button
+                          size="sm"
+                          onClick={() => accept.mutate(inv.token)}
+                          disabled={accept.isPending}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => reject.mutate(inv.token)}
-                          disabled={reject.isPending}>Reject</Button>
+                          disabled={reject.isPending}
+                        >
+                          Reject
+                        </Button>
                       </>
                     )}
                   </div>

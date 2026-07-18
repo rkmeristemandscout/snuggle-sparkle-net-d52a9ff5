@@ -99,9 +99,21 @@ export const Route = createRootRouteWithContext<{
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Multi-tenant SaaS" },
-      { name: "twitter:description", content: "A production-ready multi-tenant SaaS foundation with authentication, organizations, and roles." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4a71888c-21fa-49b3-a43c-0244e32186aa/id-preview-c2876603--d103c6df-bc29-439e-b380-b8136c399d1b.lovable.app-1784205459011.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4a71888c-21fa-49b3-a43c-0244e32186aa/id-preview-c2876603--d103c6df-bc29-439e-b380-b8136c399d1b.lovable.app-1784205459011.png" },
+      {
+        name: "twitter:description",
+        content:
+          "A production-ready multi-tenant SaaS foundation with authentication, organizations, and roles.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4a71888c-21fa-49b3-a43c-0244e32186aa/id-preview-c2876603--d103c6df-bc29-439e-b380-b8136c399d1b.lovable.app-1784205459011.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4a71888c-21fa-49b3-a43c-0244e32186aa/id-preview-c2876603--d103c6df-bc29-439e-b380-b8136c399d1b.lovable.app-1784205459011.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

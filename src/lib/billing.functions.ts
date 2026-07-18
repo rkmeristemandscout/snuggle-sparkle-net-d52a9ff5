@@ -15,11 +15,7 @@ async function ensureAdmin(supabase: any, userId: string, orgId: string) {
   }
 }
 
-async function getOrCreateCustomer(
-  orgId: string,
-  ownerEmail: string | null,
-  orgName: string,
-) {
+async function getOrCreateCustomer(orgId: string, ownerEmail: string | null, orgName: string) {
   const { getStripe } = await import("./stripe.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const stripe = getStripe();
@@ -52,12 +48,14 @@ async function getOrCreateCustomer(
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      organizationId: z.string().uuid(),
-      planId: z.string().uuid(),
-      successUrl: z.string().url(),
-      cancelUrl: z.string().url(),
-    }).parse(input),
+    z
+      .object({
+        organizationId: z.string().uuid(),
+        planId: z.string().uuid(),
+        successUrl: z.string().url(),
+        cancelUrl: z.string().url(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -96,11 +94,20 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const price = await stripe.prices.create({
         currency: plan.currency,
         unit_amount: plan.price_cents,
-        recurring: plan.interval === "one_time" ? undefined : { interval: plan.interval as "month" | "year" },
+        recurring:
+          plan.interval === "one_time"
+            ? undefined
+            : { interval: plan.interval as "month" | "year" },
         product_data: { name: plan.name },
       });
       priceId = price.id;
-      await supabaseAdmin.from("plans").update({ stripe_price_id: priceId, stripe_product_id: typeof price.product === "string" ? price.product : price.product.id }).eq("id", plan.id);
+      await supabaseAdmin
+        .from("plans")
+        .update({
+          stripe_price_id: priceId,
+          stripe_product_id: typeof price.product === "string" ? price.product : price.product.id,
+        })
+        .eq("id", plan.id);
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -111,9 +118,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       cancel_url: data.cancelUrl,
       allow_promotion_codes: true,
       metadata: { organization_id: data.organizationId, plan_id: plan.id },
-      subscription_data: plan.interval === "one_time" ? undefined : {
-        metadata: { organization_id: data.organizationId, plan_id: plan.id },
-      },
+      subscription_data:
+        plan.interval === "one_time"
+          ? undefined
+          : {
+              metadata: { organization_id: data.organizationId, plan_id: plan.id },
+            },
     });
 
     return { url: session.url };
@@ -123,10 +133,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      organizationId: z.string().uuid(),
-      returnUrl: z.string().url(),
-    }).parse(input),
+    z
+      .object({
+        organizationId: z.string().uuid(),
+        returnUrl: z.string().url(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -137,7 +149,8 @@ export const createPortalSession = createServerFn({ method: "POST" })
       .select("stripe_customer_id")
       .eq("organization_id", data.organizationId)
       .maybeSingle();
-    if (!sub?.stripe_customer_id) throw new Error("No billing account. Subscribe to a paid plan first.");
+    if (!sub?.stripe_customer_id)
+      throw new Error("No billing account. Subscribe to a paid plan first.");
 
     const { getStripe } = await import("./stripe.server");
     const stripe = getStripe();
@@ -152,10 +165,12 @@ export const createPortalSession = createServerFn({ method: "POST" })
 export const cancelSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      organizationId: z.string().uuid(),
-      immediately: z.boolean().default(false),
-    }).parse(input),
+    z
+      .object({
+        organizationId: z.string().uuid(),
+        immediately: z.boolean().default(false),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -181,9 +196,7 @@ export const cancelSubscription = createServerFn({ method: "POST" })
 /** Renew (undo pending cancellation) a subscription. */
 export const renewSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
-    z.object({ organizationId: z.string().uuid() }).parse(input),
-  )
+  .validator((input: unknown) => z.object({ organizationId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await ensureAdmin(supabase, userId, data.organizationId);
@@ -205,10 +218,12 @@ export const renewSubscription = createServerFn({ method: "POST" })
 export const changePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      organizationId: z.string().uuid(),
-      planId: z.string().uuid(),
-    }).parse(input),
+    z
+      .object({
+        organizationId: z.string().uuid(),
+        planId: z.string().uuid(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -219,7 +234,8 @@ export const changePlan = createServerFn({ method: "POST" })
       .select("stripe_subscription_id")
       .eq("organization_id", data.organizationId)
       .maybeSingle();
-    if (!sub?.stripe_subscription_id) throw new Error("No active subscription. Use checkout to subscribe first.");
+    if (!sub?.stripe_subscription_id)
+      throw new Error("No active subscription. Use checkout to subscribe first.");
 
     const { data: plan } = await supabase
       .from("plans")
@@ -242,7 +258,13 @@ export const changePlan = createServerFn({ method: "POST" })
         product_data: { name: plan.name },
       });
       priceId = price.id;
-      await supabaseAdmin.from("plans").update({ stripe_price_id: priceId, stripe_product_id: typeof price.product === "string" ? price.product : price.product.id }).eq("id", plan.id);
+      await supabaseAdmin
+        .from("plans")
+        .update({
+          stripe_price_id: priceId,
+          stripe_product_id: typeof price.product === "string" ? price.product : price.product.id,
+        })
+        .eq("id", plan.id);
     }
 
     const current = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
@@ -258,11 +280,13 @@ export const changePlan = createServerFn({ method: "POST" })
 export const updatePlanStripeIds = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
-    z.object({
-      planId: z.string().uuid(),
-      stripeProductId: z.string().trim().nullable().optional(),
-      stripePriceId: z.string().trim().nullable().optional(),
-    }).parse(input),
+    z
+      .object({
+        planId: z.string().uuid(),
+        stripeProductId: z.string().trim().nullable().optional(),
+        stripePriceId: z.string().trim().nullable().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;

@@ -1,9 +1,7 @@
 import { Bell, CheckCheck } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -69,7 +67,9 @@ export function NotificationsMenu() {
                         </Badge>
                       </div>
                       {n.message && (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                          {n.message}
+                        </p>
                       )}
                       <p className="mt-1 text-[10px] text-muted-foreground">
                         {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}

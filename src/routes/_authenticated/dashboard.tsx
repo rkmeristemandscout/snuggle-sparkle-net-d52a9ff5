@@ -3,7 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useMemo } from "react";
 import {
-  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { formatDistanceToNow, subDays, startOfDay, format } from "date-fns";
 import { Users, Boxes, Building2, Mail, ArrowUpRight } from "lucide-react";
@@ -27,7 +33,12 @@ type Stats = {
   departments: number;
   pendingInvites: number;
   memberTimeline: { user_id: string; created_at: string }[];
-  recentMembers: { user_id: string; created_at: string; role: string; profile: { full_name: string | null; avatar_url: string | null } | null }[];
+  recentMembers: {
+    user_id: string;
+    created_at: string;
+    role: string;
+    profile: { full_name: string | null; avatar_url: string | null } | null;
+  }[];
 };
 
 function Dashboard() {
@@ -40,17 +51,40 @@ function Dashboard() {
     if (!currentOrgId) return;
     const channel = supabase
       .channel(`dashboard:${currentOrgId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "organization_members", filter: `organization_id=eq.${currentOrgId}` },
-        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "teams", filter: `organization_id=eq.${currentOrgId}` },
-        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "organization_invitations", filter: `organization_id=eq.${currentOrgId}` },
-        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }))
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "organization_members",
+          filter: `organization_id=eq.${currentOrgId}`,
+        },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "teams",
+          filter: `organization_id=eq.${currentOrgId}`,
+        },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "organization_invitations",
+          filter: `organization_id=eq.${currentOrgId}`,
+        },
+        () => qc.invalidateQueries({ queryKey: ["dashboard-stats", currentOrgId] }),
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [currentOrgId, qc]);
 
   const stats = useQuery({
@@ -83,7 +117,9 @@ function Dashboard() {
       let profiles: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
       if (ids.length) {
         const { data } = await supabase
-          .from("profiles").select("id, full_name, avatar_url").in("id", ids);
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", ids);
         profiles = Object.fromEntries((data ?? []).map((p) => [p.id, p]));
       }
       return {
@@ -140,7 +176,9 @@ function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild><Link to="/organizations">Create organization</Link></Button>
+            <Button asChild>
+              <Link to="/organizations">Create organization</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -151,7 +189,12 @@ function Dashboard() {
     { label: "Members", value: stats.data?.members ?? 0, icon: Users, hint: "Total members" },
     { label: "Teams", value: stats.data?.teams ?? 0, icon: Building2, hint: "Active teams" },
     { label: "Departments", value: stats.data?.departments ?? 0, icon: Boxes, hint: "Departments" },
-    { label: "Pending invites", value: stats.data?.pendingInvites ?? 0, icon: Mail, hint: "Awaiting response" },
+    {
+      label: "Pending invites",
+      value: stats.data?.pendingInvites ?? 0,
+      icon: Mail,
+      hint: "Awaiting response",
+    },
   ];
 
   return (
@@ -166,8 +209,12 @@ function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline"><Link to="/invitations">Invitations</Link></Button>
-          <Button asChild><Link to="/teams">Create team</Link></Button>
+          <Button asChild variant="outline">
+            <Link to="/invitations">Invitations</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/teams">Create team</Link>
+          </Button>
         </div>
       </div>
 
@@ -197,13 +244,33 @@ function Dashboard() {
               <AreaChart data={chartData} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--chart-1, 220 90% 56%))" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="hsl(var(--chart-1, 220 90% 56%))" stopOpacity={0} />
+                    <stop
+                      offset="0%"
+                      stopColor="hsl(var(--chart-1, 220 90% 56%))"
+                      stopOpacity={0.4}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="hsl(var(--chart-1, 220 90% 56%))"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "hsl(var(--popover))",
@@ -212,7 +279,13 @@ function Dashboard() {
                     fontSize: 12,
                   }}
                 />
-                <Area type="monotone" dataKey="cumulative" stroke="var(--color-primary)" strokeWidth={2} fill="url(#g1)" />
+                <Area
+                  type="monotone"
+                  dataKey="cumulative"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2}
+                  fill="url(#g1)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -235,7 +308,12 @@ function Dashboard() {
               <ul className="space-y-4">
                 {stats.data.recentMembers.map((m) => {
                   const name = m.profile?.full_name ?? m.user_id.slice(0, 8);
-                  const initials = name.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+                  const initials = name
+                    .split(" ")
+                    .map((s) => s[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
                   return (
                     <li key={m.user_id} className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
@@ -247,7 +325,9 @@ function Dashboard() {
                           {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
                         </p>
                       </div>
-                      <Badge variant="secondary" className="capitalize">{m.role}</Badge>
+                      <Badge variant="secondary" className="capitalize">
+                        {m.role}
+                      </Badge>
                     </li>
                   );
                 })}
@@ -273,14 +353,19 @@ function Dashboard() {
             ) : (
               <ul className="space-y-4">
                 {activity.map((a) => (
-                  <li key={a.id} className="flex items-start gap-3 border-l-2 border-primary/40 pl-4">
+                  <li
+                    key={a.id}
+                    className="flex items-start gap-3 border-l-2 border-primary/40 pl-4"
+                  >
                     <div className="flex-1">
                       <p className="text-sm">{a.summary}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">{a.action}</Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {a.action}
+                    </Badge>
                   </li>
                 ))}
               </ul>

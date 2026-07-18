@@ -12,9 +12,7 @@ function fail(msg: string): never {
 
 export const listTeams = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { organizationId: string }) =>
-    z.object({ organizationId: uuid }).parse(d),
-  )
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("teams")
@@ -50,26 +48,33 @@ export const createTeam = createServerFn({ method: "POST" })
 export const updateTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { teamId: string } & Partial<z.infer<typeof teamSchema>> & { ownerId?: string }) =>
-    z.object({
-      teamId: uuid,
-      name: z.string().trim().min(2).max(60).optional(),
-      slug: slugSchema.optional(),
-      description: z.string().trim().max(280).optional().or(z.literal("")),
-      ownerId: uuid.optional(),
-    }).parse(d),
+    z
+      .object({
+        teamId: uuid,
+        name: z.string().trim().min(2).max(60).optional(),
+        slug: slugSchema.optional(),
+        description: z.string().trim().max(280).optional().or(z.literal("")),
+        ownerId: uuid.optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const patch: {
-      name?: string; slug?: string;
-      description?: string | null; owner_id?: string;
+      name?: string;
+      slug?: string;
+      description?: string | null;
+      owner_id?: string;
     } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.slug !== undefined) patch.slug = data.slug;
     if (data.description !== undefined) patch.description = data.description || null;
     if (data.ownerId !== undefined) patch.owner_id = data.ownerId;
     const { data: row, error } = await context.supabase
-      .from("teams").update(patch).eq("id", data.teamId)
-      .select("id, name, slug, description, owner_id").single();
+      .from("teams")
+      .update(patch)
+      .eq("id", data.teamId)
+      .select("id, name, slug, description, owner_id")
+      .single();
     if (error) fail(error.message);
     return row!;
   });
@@ -86,10 +91,13 @@ export const deleteTeam = createServerFn({ method: "POST" })
 export const addTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { teamId: string; userId: string; role?: "owner" | "member" }) =>
-    z.object({
-      teamId: uuid, userId: uuid,
-      role: z.enum(["owner", "member"]).default("member"),
-    }).parse(d),
+    z
+      .object({
+        teamId: uuid,
+        userId: uuid,
+        role: z.enum(["owner", "member"]).default("member"),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -106,8 +114,10 @@ export const removeTeamMember = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
-      .from("team_members").delete()
-      .eq("team_id", data.teamId).eq("user_id", data.userId);
+      .from("team_members")
+      .delete()
+      .eq("team_id", data.teamId)
+      .eq("user_id", data.userId);
     if (error) fail(error.message);
     return { ok: true };
   });

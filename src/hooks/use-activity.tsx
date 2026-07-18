@@ -38,7 +38,12 @@ export function useActivity(orgId: string | null, limit = 25) {
       .channel(`activity:${orgId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "activity_logs", filter: `organization_id=eq.${orgId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "activity_logs",
+          filter: `organization_id=eq.${orgId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["activity", orgId] }),
       )
       .subscribe();

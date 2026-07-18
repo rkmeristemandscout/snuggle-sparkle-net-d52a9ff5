@@ -37,9 +37,13 @@ export function OrgSwitcher() {
           >
             <div className="flex flex-col">
               <span className="truncate font-medium">{m.organization.name}</span>
-              <span className="text-xs text-muted-foreground">/{m.organization.slug} · {m.role}</span>
+              <span className="text-xs text-muted-foreground">
+                /{m.organization.slug} · {m.role}
+              </span>
             </div>
-            {currentMembership?.organization.id === m.organization.id && <Check className="h-4 w-4" />}
+            {currentMembership?.organization.id === m.organization.id && (
+              <Check className="h-4 w-4" />
+            )}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

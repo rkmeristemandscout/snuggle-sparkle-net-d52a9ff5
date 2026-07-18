@@ -4,13 +4,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { departmentSchema, slugSchema } from "@/lib/auth-schemas";
 
 const uuid = z.string().uuid();
-function fail(msg: string): never { throw new Error(msg); }
+function fail(msg: string): never {
+  throw new Error(msg);
+}
 
 export const listDepartments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { organizationId: string }) =>
-    z.object({ organizationId: uuid }).parse(d),
-  )
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("departments")
@@ -31,11 +31,13 @@ export const createDepartment = createServerFn({ method: "POST" })
       .from("departments")
       .insert({
         organization_id: data.organizationId,
-        name: data.name, slug: data.slug,
+        name: data.name,
+        slug: data.slug,
         description: data.description || null,
         created_by: context.userId,
       })
-      .select("id, name, slug, description").single();
+      .select("id, name, slug, description")
+      .single();
     if (error) fail(error.message);
     return row!;
   });
@@ -43,12 +45,14 @@ export const createDepartment = createServerFn({ method: "POST" })
 export const updateDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { departmentId: string } & Partial<z.infer<typeof departmentSchema>>) =>
-    z.object({
-      departmentId: uuid,
-      name: z.string().trim().min(2).max(60).optional(),
-      slug: slugSchema.optional(),
-      description: z.string().trim().max(280).optional().or(z.literal("")),
-    }).parse(d),
+    z
+      .object({
+        departmentId: uuid,
+        name: z.string().trim().min(2).max(60).optional(),
+        slug: slugSchema.optional(),
+        description: z.string().trim().max(280).optional().or(z.literal("")),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const patch: { name?: string; slug?: string; description?: string | null } = {};
@@ -56,8 +60,11 @@ export const updateDepartment = createServerFn({ method: "POST" })
     if (data.slug !== undefined) patch.slug = data.slug;
     if (data.description !== undefined) patch.description = data.description || null;
     const { data: row, error } = await context.supabase
-      .from("departments").update(patch).eq("id", data.departmentId)
-      .select("id, name, slug, description").single();
+      .from("departments")
+      .update(patch)
+      .eq("id", data.departmentId)
+      .select("id, name, slug, description")
+      .single();
     if (error) fail(error.message);
     return row!;
   });
@@ -67,7 +74,9 @@ export const deleteDepartment = createServerFn({ method: "POST" })
   .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
-      .from("departments").delete().eq("id", data.departmentId);
+      .from("departments")
+      .delete()
+      .eq("id", data.departmentId);
     if (error) fail(error.message);
     return { ok: true };
   });

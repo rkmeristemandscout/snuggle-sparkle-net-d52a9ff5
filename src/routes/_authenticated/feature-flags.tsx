@@ -13,7 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/feature-flags")({
@@ -63,7 +68,10 @@ function FeatureFlagsPage() {
 
   const rollout = useMutation({
     mutationFn: async ({ id, pct }: { id: string; pct: number }) => {
-      const { error } = await supabase.from("feature_flags").update({ rollout_percentage: pct }).eq("id", id);
+      const { error } = await supabase
+        .from("feature_flags")
+        .update({ rollout_percentage: pct })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["feature-flags", currentOrgId] }),
@@ -106,23 +114,60 @@ function FeatureFlagsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><Flag className="h-6 w-6" /> Feature Flags</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Flag className="h-6 w-6" /> Feature Flags
+          </h1>
           <p className="text-sm text-muted-foreground">Toggle features for this organization.</p>
         </div>
         {canManage && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> New flag</Button>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> New flag
+              </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Create feature flag</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Create feature flag</DialogTitle>
+              </DialogHeader>
               <div className="space-y-3">
-                <div><Label htmlFor="ff-key">Key</Label><Input id="ff-key" name="key" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="new_dashboard" /></div>
-                <div><Label htmlFor="ff-name">Name</Label><Input id="ff-name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="New Dashboard" /></div>
-                <div><Label htmlFor="ff-description">Description</Label><Input id="ff-description" name="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                <div>
+                  <Label htmlFor="ff-key">Key</Label>
+                  <Input
+                    id="ff-key"
+                    name="key"
+                    value={form.key}
+                    onChange={(e) => setForm({ ...form, key: e.target.value })}
+                    placeholder="new_dashboard"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ff-name">Name</Label>
+                  <Input
+                    id="ff-name"
+                    name="name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="New Dashboard"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ff-description">Description</Label>
+                  <Input
+                    id="ff-description"
+                    name="description"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => createFlag.mutate()} disabled={!form.key.trim() || !form.name.trim() || createFlag.isPending}>Create</Button>
+                <Button
+                  onClick={() => createFlag.mutate()}
+                  disabled={!form.key.trim() || !form.name.trim() || createFlag.isPending}
+                >
+                  Create
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -130,7 +175,10 @@ function FeatureFlagsPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Flags</CardTitle><CardDescription>Global flags apply to all organizations.</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>Flags</CardTitle>
+          <CardDescription>Global flags apply to all organizations.</CardDescription>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
@@ -142,14 +190,19 @@ function FeatureFlagsPage() {
                 const isGlobal = f.organization_id === null;
                 const editable = canManage && (!isGlobal || isSuperAdmin);
                 return (
-                  <div key={f.id} className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+                  <div
+                    key={f.id}
+                    className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between"
+                  >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{f.name}</p>
                         {isGlobal && <Badge variant="outline">Global</Badge>}
                       </div>
                       <p className="text-xs font-mono text-muted-foreground">{f.key}</p>
-                      {f.description && <p className="text-xs text-muted-foreground">{f.description}</p>}
+                      {f.description && (
+                        <p className="text-xs text-muted-foreground">{f.description}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
@@ -157,11 +210,18 @@ function FeatureFlagsPage() {
                         <Input
                           id={`ff-rollout-${f.id}`}
                           name={`rollout-${f.id}`}
-                          type="number" min={0} max={100}
+                          type="number"
+                          min={0}
+                          max={100}
                           className="w-16"
                           value={f.rollout_percentage}
                           disabled={!editable}
-                          onChange={(e) => rollout.mutate({ id: f.id, pct: Math.max(0, Math.min(100, Number(e.target.value))) })}
+                          onChange={(e) =>
+                            rollout.mutate({
+                              id: f.id,
+                              pct: Math.max(0, Math.min(100, Number(e.target.value))),
+                            })
+                          }
                         />
                         <span className="text-xs text-muted-foreground">%</span>
                       </div>

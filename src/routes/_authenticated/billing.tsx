@@ -4,17 +4,36 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle, RefreshCw, ArrowUpRight, Settings } from "lucide-react";
+import {
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  ArrowUpRight,
+  Settings,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  createCheckoutSession, createPortalSession, cancelSubscription,
-  renewSubscription, changePlan,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  createCheckoutSession,
+  createPortalSession,
+  cancelSubscription,
+  renewSubscription,
+  changePlan,
 } from "@/lib/billing.functions";
 
 type BillingSearch = { checkout?: "success" | "cancel" };
@@ -40,14 +59,19 @@ function BillingPage() {
   const changeFn = useServerFn(changePlan);
 
   useEffect(() => {
-    if (search.checkout === "success") toast.success("Payment successful. Your plan is being updated.");
+    if (search.checkout === "success")
+      toast.success("Payment successful. Your plan is being updated.");
     if (search.checkout === "cancel") toast.info("Checkout canceled.");
   }, [search.checkout]);
 
   const plansQ = useQuery({
     queryKey: ["billing", "plans"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("plans").select("*").eq("is_active", true).order("sort_order");
+      const { data, error } = await supabase
+        .from("plans")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order");
       if (error) throw error;
       return data;
     },
@@ -72,8 +96,11 @@ function BillingPage() {
     queryKey: ["billing", "invoices", currentOrgId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoices").select("*").eq("organization_id", currentOrgId!)
-        .order("created_at", { ascending: false }).limit(20);
+        .from("invoices")
+        .select("*")
+        .eq("organization_id", currentOrgId!)
+        .order("created_at", { ascending: false })
+        .limit(20);
       if (error) throw error;
       return data;
     },
@@ -84,8 +111,11 @@ function BillingPage() {
     queryKey: ["billing", "payments", currentOrgId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("payments").select("*").eq("organization_id", currentOrgId!)
-        .order("created_at", { ascending: false }).limit(20);
+        .from("payments")
+        .select("*")
+        .eq("organization_id", currentOrgId!)
+        .order("created_at", { ascending: false })
+        .limit(20);
       if (error) throw error;
       return data;
     },
@@ -96,8 +126,13 @@ function BillingPage() {
     queryKey: ["billing", "usage", currentOrgId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("usage_metrics").select("*").eq("organization_id", currentOrgId!)
-        .gte("period_start", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .from("usage_metrics")
+        .select("*")
+        .eq("organization_id", currentOrgId!)
+        .gte(
+          "period_start",
+          new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+        )
         .order("recorded_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -109,21 +144,33 @@ function BillingPage() {
   const returnUrl = () => `${window.location.origin}/billing`;
 
   const startCheckout = useMutation({
-    mutationFn: async (planId: string) => checkout({
-      data: { organizationId: currentOrgId!, planId, successUrl: successUrl(), cancelUrl: cancelUrl() },
-    }),
-    onSuccess: (r) => { if (r.url) window.location.href = r.url; },
+    mutationFn: async (planId: string) =>
+      checkout({
+        data: {
+          organizationId: currentOrgId!,
+          planId,
+          successUrl: successUrl(),
+          cancelUrl: cancelUrl(),
+        },
+      }),
+    onSuccess: (r) => {
+      if (r.url) window.location.href = r.url;
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const openPortal = useMutation({
-    mutationFn: async () => portal({ data: { organizationId: currentOrgId!, returnUrl: returnUrl() } }),
-    onSuccess: (r) => { if (r.url) window.location.href = r.url; },
+    mutationFn: async () =>
+      portal({ data: { organizationId: currentOrgId!, returnUrl: returnUrl() } }),
+    onSuccess: (r) => {
+      if (r.url) window.location.href = r.url;
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const cancelMut = useMutation({
-    mutationFn: async () => cancelFn({ data: { organizationId: currentOrgId!, immediately: false } }),
+    mutationFn: async () =>
+      cancelFn({ data: { organizationId: currentOrgId!, immediately: false } }),
     onSuccess: () => {
       toast.success("Subscription will cancel at period end");
       qc.invalidateQueries({ queryKey: ["billing", "sub"] });
@@ -141,7 +188,8 @@ function BillingPage() {
   });
 
   const changeMut = useMutation({
-    mutationFn: async (planId: string) => changeFn({ data: { organizationId: currentOrgId!, planId } }),
+    mutationFn: async (planId: string) =>
+      changeFn({ data: { organizationId: currentOrgId!, planId } }),
     onSuccess: () => {
       toast.success("Plan updated");
       qc.invalidateQueries({ queryKey: ["billing"] });
@@ -150,7 +198,12 @@ function BillingPage() {
   });
 
   if (!currentOrgId) {
-    return <EmptyState title="No organization selected" description="Pick an organization to manage billing." />;
+    return (
+      <EmptyState
+        title="No organization selected"
+        description="Pick an organization to manage billing."
+      />
+    );
   }
 
   const sub = subQ.data;
@@ -162,17 +215,29 @@ function BillingPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
-          <p className="text-sm text-muted-foreground">Manage your plan, payment method, and invoices.</p>
+          <p className="text-sm text-muted-foreground">
+            Manage your plan, payment method, and invoices.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {isSuperAdmin && (
             <Button variant="outline" asChild>
-              <Link to="/billing/plans"><Settings className="mr-2 h-4 w-4" /> Plan Stripe mapping</Link>
+              <Link to="/billing/plans">
+                <Settings className="mr-2 h-4 w-4" /> Plan Stripe mapping
+              </Link>
             </Button>
           )}
           {isAdmin && hasStripeSub && (
-            <Button variant="outline" onClick={() => openPortal.mutate()} disabled={openPortal.isPending}>
-              {openPortal.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+            <Button
+              variant="outline"
+              onClick={() => openPortal.mutate()}
+              disabled={openPortal.isPending}
+            >
+              {openPortal.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="mr-2 h-4 w-4" />
+              )}
               Manage in Stripe
             </Button>
           )}
@@ -180,9 +245,11 @@ function BillingPage() {
       </header>
 
       {!isAdmin && (
-        <Card><CardContent className="p-4 text-sm text-muted-foreground">
-          Only organization owners and admins can change plans or view invoices.
-        </CardContent></Card>
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Only organization owners and admins can change plans or view invoices.
+          </CardContent>
+        </Card>
       )}
 
       {/* Current subscription */}
@@ -198,26 +265,42 @@ function BillingPage() {
             <div className="flex flex-wrap items-center gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold">{(sub.plan as { name?: string } | null)?.name ?? "Free"}</span>
-                  <Badge variant={sub.status === "active" || sub.status === "trialing" ? "default" : "secondary"}>
+                  <span className="text-lg font-semibold">
+                    {(sub.plan as { name?: string } | null)?.name ?? "Free"}
+                  </span>
+                  <Badge
+                    variant={
+                      sub.status === "active" || sub.status === "trialing" ? "default" : "secondary"
+                    }
+                  >
                     {sub.status}
                   </Badge>
                   {sub.cancel_at_period_end && <Badge variant="destructive">Canceling</Badge>}
                 </div>
                 {sub.current_period_end && (
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {sub.cancel_at_period_end ? "Ends" : "Renews"} on {format(new Date(sub.current_period_end), "PP")}
+                    {sub.cancel_at_period_end ? "Ends" : "Renews"} on{" "}
+                    {format(new Date(sub.current_period_end), "PP")}
                   </p>
                 )}
               </div>
               {isAdmin && hasStripeSub && (
                 <div className="ml-auto flex gap-2">
                   {sub.cancel_at_period_end ? (
-                    <Button onClick={() => renewMut.mutate()} disabled={renewMut.isPending} size="sm">
+                    <Button
+                      onClick={() => renewMut.mutate()}
+                      disabled={renewMut.isPending}
+                      size="sm"
+                    >
                       <RefreshCw className="mr-2 h-4 w-4" /> Renew
                     </Button>
                   ) : (
-                    <Button variant="outline" onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending} size="sm">
+                    <Button
+                      variant="outline"
+                      onClick={() => cancelMut.mutate()}
+                      disabled={cancelMut.isPending}
+                      size="sm"
+                    >
                       <XCircle className="mr-2 h-4 w-4" /> Cancel
                     </Button>
                   )}
@@ -234,9 +317,12 @@ function BillingPage() {
       <div>
         <h2 className="mb-3 text-lg font-semibold">Plans</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {plansQ.isLoading && Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="h-52 animate-pulse" /></Card>
-          ))}
+          {plansQ.isLoading &&
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="h-52 animate-pulse" />
+              </Card>
+            ))}
           {plansQ.data?.map((plan) => {
             const isCurrent = currentPlanKey === plan.key;
             const isFree = plan.key === "free";
@@ -252,7 +338,9 @@ function BillingPage() {
                     <span className="text-3xl font-semibold">
                       ${(plan.price_cents / 100).toFixed(0)}
                     </span>
-                    {!isFree && <span className="text-sm text-muted-foreground">/{plan.interval}</span>}
+                    {!isFree && (
+                      <span className="text-sm text-muted-foreground">/{plan.interval}</span>
+                    )}
                   </div>
                   <CardDescription>{plan.description}</CardDescription>
                 </CardHeader>
@@ -264,22 +352,43 @@ function BillingPage() {
                         <span>{f}</span>
                       </li>
                     ))}
-                    {plan.member_limit && <li className="text-muted-foreground">Up to {plan.member_limit} members</li>}
+                    {plan.member_limit && (
+                      <li className="text-muted-foreground">Up to {plan.member_limit} members</li>
+                    )}
                   </ul>
-                  {isAdmin && !isCurrent && !isFree && (
-                    hasStripeSub ? (
-                      <Button className="w-full" size="sm" onClick={() => changeMut.mutate(plan.id)} disabled={changeMut.isPending}>
+                  {isAdmin &&
+                    !isCurrent &&
+                    !isFree &&
+                    (hasStripeSub ? (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        onClick={() => changeMut.mutate(plan.id)}
+                        disabled={changeMut.isPending}
+                      >
                         <ArrowUpRight className="mr-2 h-4 w-4" /> Switch to {plan.name}
                       </Button>
                     ) : (
-                      <Button className="w-full" size="sm" onClick={() => startCheckout.mutate(plan.id)} disabled={startCheckout.isPending}>
-                        {startCheckout.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        onClick={() => startCheckout.mutate(plan.id)}
+                        disabled={startCheckout.isPending}
+                      >
+                        {startCheckout.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
                         Subscribe
                       </Button>
-                    )
-                  )}
+                    ))}
                   {isAdmin && !isCurrent && isFree && hasStripeSub && (
-                    <Button variant="outline" className="w-full" size="sm" onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending}>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      size="sm"
+                      onClick={() => cancelMut.mutate()}
+                      disabled={cancelMut.isPending}
+                    >
                       Downgrade to Free
                     </Button>
                   )}
@@ -305,7 +414,9 @@ function BillingPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {usageQ.data!.map((u) => (
                 <div key={u.id} className="rounded-lg border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{u.metric}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {u.metric}
+                  </p>
                   <p className="mt-1 text-2xl font-semibold">{Number(u.value).toLocaleString()}</p>
                 </div>
               ))}
@@ -341,10 +452,18 @@ function BillingPage() {
                   <TableBody>
                     {invoicesQ.data!.map((inv) => (
                       <TableRow key={inv.id}>
-                        <TableCell className="font-mono text-xs">{inv.number ?? inv.stripe_invoice_id}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {inv.number ?? inv.stripe_invoice_id}
+                        </TableCell>
                         <TableCell>{format(new Date(inv.created_at), "PP")}</TableCell>
-                        <TableCell>${(inv.amount_paid_cents / 100).toFixed(2)} {inv.currency.toUpperCase()}</TableCell>
-                        <TableCell><Badge variant={inv.status === "paid" ? "default" : "secondary"}>{inv.status}</Badge></TableCell>
+                        <TableCell>
+                          ${(inv.amount_paid_cents / 100).toFixed(2)} {inv.currency.toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={inv.status === "paid" ? "default" : "secondary"}>
+                            {inv.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                           {inv.hosted_invoice_url && (
                             <Button size="sm" variant="ghost" asChild>
@@ -386,9 +505,17 @@ function BillingPage() {
                   {paymentsQ.data!.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell>{format(new Date(p.created_at), "PP")}</TableCell>
-                      <TableCell>${(p.amount_cents / 100).toFixed(2)} {p.currency.toUpperCase()}</TableCell>
-                      <TableCell><Badge variant={p.status === "succeeded" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.description ?? "—"}</TableCell>
+                      <TableCell>
+                        ${(p.amount_cents / 100).toFixed(2)} {p.currency.toUpperCase()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={p.status === "succeeded" ? "default" : "secondary"}>
+                          {p.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.description ?? "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

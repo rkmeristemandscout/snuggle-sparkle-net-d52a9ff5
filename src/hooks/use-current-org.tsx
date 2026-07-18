@@ -45,7 +45,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     queryFn: async (): Promise<Membership[]> => {
       const { data, error } = await supabase
         .from("organization_members")
-        .select("role, organization:organization_id(id, name, slug, description, logo_url, status, created_by)")
+        .select(
+          "role, organization:organization_id(id, name, slug, description, logo_url, status, created_by)",
+        )
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? [])

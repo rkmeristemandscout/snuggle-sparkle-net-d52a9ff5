@@ -57,7 +57,11 @@ function ForgotPage() {
           </form>
         )}
         <div className="mt-6 text-center text-sm">
-          <Link to="/auth" search={{ mode: "signin" }} className="text-muted-foreground hover:underline">
+          <Link
+            to="/auth"
+            search={{ mode: "signin" }}
+            className="text-muted-foreground hover:underline"
+          >
             Back to sign in
           </Link>
         </div>

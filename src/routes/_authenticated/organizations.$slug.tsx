@@ -62,8 +62,12 @@ function OrgLayout() {
       </div>
 
       <nav className="flex gap-1 border-b text-sm">
-        <TabLink to="/organizations/$slug/settings" slug={org.slug}>Settings</TabLink>
-        <TabLink to="/organizations/$slug/members" slug={org.slug}>Members</TabLink>
+        <TabLink to="/organizations/$slug/settings" slug={org.slug}>
+          Settings
+        </TabLink>
+        <TabLink to="/organizations/$slug/members" slug={org.slug}>
+          Members
+        </TabLink>
       </nav>
 
       <Outlet />
@@ -71,7 +75,15 @@ function OrgLayout() {
   );
 }
 
-function TabLink({ to, slug, children }: { to: "/organizations/$slug/settings" | "/organizations/$slug/members"; slug: string; children: React.ReactNode }) {
+function TabLink({
+  to,
+  slug,
+  children,
+}: {
+  to: "/organizations/$slug/settings" | "/organizations/$slug/members";
+  slug: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       to={to}
