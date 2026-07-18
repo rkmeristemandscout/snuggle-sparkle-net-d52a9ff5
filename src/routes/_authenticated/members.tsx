@@ -516,7 +516,7 @@ function MembersPage() {
 
   const bulkRefresh = useMutation({
     mutationFn: async (ids: string[]) => {
-      const results: { email: string; url: string }[] = [];
+      const results: { email: string; url: string; emailed: boolean }[] = [];
       const failures: { id: string; email: string; reason: string }[] = [];
       setBulkProgress({ done: 0, total: ids.length });
       // seed all as queued
@@ -555,9 +555,26 @@ function MembersPage() {
             });
             setBulkStatuses((prev) => ({ ...prev, [id]: "failed" }));
           } else {
+            let emailed = false;
+            if (emailConfigured && row.email && currentOrgId) {
+              try {
+                const result = await sendInvite({
+                  data: {
+                    email: row.email,
+                    token: row.token,
+                    organizationId: currentOrgId,
+                    inviterName: user?.email ?? undefined,
+                  },
+                });
+                emailed = !!result?.sent;
+              } catch {
+                emailed = false;
+              }
+            }
             results.push({
               email: row.email ?? email,
               url: `${window.location.origin}/join/${row.token}`,
+              emailed,
             });
             setBulkStatuses((prev) => ({ ...prev, [id]: "success" }));
           }
@@ -566,6 +583,7 @@ function MembersPage() {
       }
       return { results, failures, total: ids.length };
     },
+
     onSuccess: async ({ results, failures, total }) => {
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
       const successCount = results.length;
