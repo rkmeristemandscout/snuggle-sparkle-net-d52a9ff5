@@ -445,26 +445,47 @@ function MembersPage() {
   const bulkRefresh = useMutation({
     mutationFn: async (ids: string[]) => {
       const results: { email: string; url: string }[] = [];
-      const failures: string[] = [];
+      const failures: { id: string; email: string; reason: string }[] = [];
       setBulkProgress({ done: 0, total: ids.length });
+      // seed all as queued
+      setBulkStatuses(() => {
+        const seed: Record<string, "queued" | "regenerating" | "success" | "failed"> = {};
+        ids.forEach((id) => { seed[id] = "queued"; });
+        return seed;
+      });
+      // capture emails up front so failure messages have context
+      const emailById = new Map<string, string>();
+      (invites.data ?? []).forEach((i: { id: string; email: string }) => {
+        if (ids.includes(i.id)) emailById.set(i.id, i.email);
+      });
+
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
+        const email = emailById.get(id) ?? "";
+        setBulkStatuses((prev) => ({ ...prev, [id]: "regenerating" }));
         const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
         if (error) {
-          failures.push(id);
+          failures.push({ id, email, reason: error.message || "RPC error" });
+          setBulkStatuses((prev) => ({ ...prev, [id]: "failed" }));
         } else {
-          const { data: row } = await supabase
+          const { data: row, error: fetchErr } = await supabase
             .from("organization_invitations")
             .select("id, email, token")
             .eq("id", id)
             .single();
-          if (row?.token) {
+          if (fetchErr || !row?.token) {
+            failures.push({
+              id,
+              email: row?.email ?? email,
+              reason: fetchErr?.message || "Missing token after regeneration",
+            });
+            setBulkStatuses((prev) => ({ ...prev, [id]: "failed" }));
+          } else {
             results.push({
-              email: row.email ?? "",
+              email: row.email ?? email,
               url: `${window.location.origin}/join/${row.token}`,
             });
-          } else {
-            failures.push(id);
+            setBulkStatuses((prev) => ({ ...prev, [id]: "success" }));
           }
         }
         setBulkProgress({ done: i + 1, total: ids.length });
@@ -475,6 +496,10 @@ function MembersPage() {
       qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] });
       const successCount = results.length;
       const failCount = failures.length;
+      if (failCount > 0) {
+        setBulkFailures(failures);
+        setBulkFailuresOpen(true);
+      }
       if (successCount === 0) {
         toast.error(`Bulk refresh failed`, {
           description: `0 of ${total} regenerated — ${failCount} failed.`,
@@ -502,12 +527,16 @@ function MembersPage() {
       }
       setSelectedInviteIds(new Set());
       setBulkProgress(null);
+      // keep bulkStatuses briefly so users can see final states, then clear
+      window.setTimeout(() => setBulkStatuses({}), 4000);
     },
     onError: (e: Error) => {
       toast.error(e.message);
       setBulkProgress(null);
+      setBulkStatuses({});
     },
   });
+
 
 
   const cancelInvite = useMutation({
