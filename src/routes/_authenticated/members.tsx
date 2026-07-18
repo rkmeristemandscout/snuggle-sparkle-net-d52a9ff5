@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
-import { Copy, MoreHorizontal, Search, Trash2, UserPlus } from "lucide-react";
+import {
+  Copy, MoreHorizontal, Search, Trash2, UserPlus,
+  UserCheck, UserX, Users, UserRound, MailWarning,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { inviteSchema, type InviteValues } from "@/lib/auth-schemas";
 import { useCurrentOrg, type OrgRole } from "@/hooks/use-current-org";
 import { useSession } from "@/hooks/use-session";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -17,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -34,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/members")({
   component: MembersPage,
 });
 
-type Status = "active" | "pending" | "expired" | "rejected";
+type Status = "active" | "suspended" | "pending" | "expired" | "rejected";
 
 type Row = {
   key: string;
@@ -45,14 +49,59 @@ type Row = {
   email: string;
   role: string;
   status: Status;
+  department: string;
+  teams: string[];
   joinedAt: string;
+  lastActive: string | null;
   avatarUrl: string | null;
   token?: string | null;
 };
 
+type MemberRpcRow = {
+  id: string;
+  user_id: string;
+  role: OrgRole;
+  status: "active" | "suspended";
+  created_at: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  last_sign_in_at: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  team_names: string[] | null;
+};
+
+const RBAC_ROLES = [
+  { key: "organization_owner", label: "Organization Owner", orgRole: "admin" as OrgRole },
+  { key: "admin", label: "Admin", orgRole: "admin" as OrgRole },
+  { key: "manager", label: "Manager", orgRole: "member" as OrgRole },
+  { key: "employee", label: "Employee", orgRole: "member" as OrgRole },
+  { key: "guest", label: "Guest", orgRole: "member" as OrgRole },
+];
+
+const inviteSchema = z.object({
+  email: z.string().trim().email("Enter a valid email").max(255),
+  roleKey: z.enum(["organization_owner", "admin", "manager", "employee", "guest"]),
+});
+type InviteFormValues = z.infer<typeof inviteSchema>;
+
 function initials(name: string, email: string) {
   const src = name?.trim() || email || "?";
   return src.split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function timeAgo(iso: string | null) {
+  if (!iso) return "Never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "Just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 function MembersPage() {
@@ -76,22 +125,9 @@ function MembersPage() {
     enabled: !!currentOrgId,
     queryKey: ["members-page", "members", currentOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("id, user_id, role, created_at")
-        .eq("organization_id", currentOrgId!)
-        .order("created_at", { ascending: true });
+      const { data, error } = await supabase.rpc("list_org_members", { _org: currentOrgId! });
       if (error) throw error;
-      const ids = Array.from(new Set((data ?? []).map((m) => m.user_id)));
-      let profiles: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
-      if (ids.length) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url")
-          .in("id", ids);
-        profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
-      }
-      return (data ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
+      return (data ?? []) as MemberRpcRow[];
     },
   });
 
@@ -101,7 +137,7 @@ function MembersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organization_invitations")
-        .select("id, email, role, token, accepted_at, rejected_at, expires_at, created_at")
+        .select("id, email, role, token, accepted_at, rejected_at, expires_at, created_at, assigned_role_key")
         .eq("organization_id", currentOrgId!)
         .is("accepted_at", null)
         .order("created_at", { ascending: false });
@@ -110,18 +146,42 @@ function MembersPage() {
     },
   });
 
+  // Realtime refresh
+  useEffect(() => {
+    if (!currentOrgId) return;
+    const ch = supabase
+      .channel(`members-page-${currentOrgId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organization_members", filter: `organization_id=eq.${currentOrgId}` },
+        () => qc.invalidateQueries({ queryKey: ["members-page", "members", currentOrgId] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organization_invitations", filter: `organization_id=eq.${currentOrgId}` },
+        () => qc.invalidateQueries({ queryKey: ["members-page", "invites", currentOrgId] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [currentOrgId, qc]);
+
   const rows: Row[] = useMemo(() => {
     const memberRows: Row[] = (members.data ?? []).map((m) => ({
       key: `m-${m.id}`,
       kind: "member",
       id: m.id,
       userId: m.user_id,
-      fullName: m.profile?.full_name ?? "—",
-      email: "",
+      fullName: m.full_name ?? "—",
+      email: m.email ?? "",
       role: m.role,
-      status: "active",
+      status: m.status,
+      department: m.department_name ?? "—",
+      teams: m.team_names ?? [],
       joinedAt: m.created_at,
-      avatarUrl: m.profile?.avatar_url ?? null,
+      lastActive: m.last_sign_in_at,
+      avatarUrl: m.avatar_url,
     }));
     const inviteRows: Row[] = (invites.data ?? []).map((i) => {
       const status: Status = i.rejected_at
@@ -136,9 +196,12 @@ function MembersPage() {
         userId: null,
         fullName: "—",
         email: i.email,
-        role: i.role,
+        role: (i as { assigned_role_key?: string | null }).assigned_role_key ?? i.role,
         status,
+        department: "—",
+        teams: [],
         joinedAt: i.created_at,
+        lastActive: null,
         avatarUrl: null,
         token: i.token,
       };
@@ -159,13 +222,25 @@ function MembersPage() {
     });
   }, [rows, search, roleFilter, statusFilter]);
 
+  const stats = useMemo(() => {
+    const memberList = members.data ?? [];
+    const inviteList = invites.data ?? [];
+    return {
+      total: memberList.length,
+      active: memberList.filter((m) => m.status === "active").length,
+      pending: inviteList.filter((i) => !i.rejected_at && new Date(i.expires_at) >= new Date()).length,
+    };
+  }, [members.data, invites.data]);
+
   const invite = useMutation({
-    mutationFn: async (v: InviteValues) => {
+    mutationFn: async (v: InviteFormValues) => {
       if (!currentOrgId || !user) throw new Error("Missing context");
+      const orgRole = RBAC_ROLES.find((r) => r.key === v.roleKey)!.orgRole;
       const { data, error } = await supabase.rpc("create_invitation", {
         _org: currentOrgId,
         _email: v.email,
-        _role: v.role,
+        _role: orgRole,
+        _role_key: v.roleKey,
       });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
@@ -190,6 +265,18 @@ function MembersPage() {
     },
     onSuccess: () => {
       toast.success("Role updated");
+      qc.invalidateQueries({ queryKey: ["members-page", "members", currentOrgId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "suspended" }) => {
+      const { error } = await supabase.rpc("set_member_status", { _member_id: id, _status: status });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.status === "suspended" ? "Member suspended" : "Member activated");
       qc.invalidateQueries({ queryKey: ["members-page", "members", currentOrgId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -258,6 +345,12 @@ function MembersPage() {
         )}
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard icon={Users} label="Total Members" value={stats.total} />
+        <StatCard icon={UserRound} label="Active Members" value={stats.active} />
+        <StatCard icon={MailWarning} label="Pending Invitations" value={stats.pending} />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -271,12 +364,15 @@ function MembersPage() {
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
             <SelectItem value="owner">Owner</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="member">Member</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
+            <SelectItem value="employee">Employee</SelectItem>
+            <SelectItem value="guest">Guest</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -284,6 +380,7 @@ function MembersPage() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
@@ -291,7 +388,7 @@ function MembersPage() {
         </Select>
       </div>
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-xl border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -300,15 +397,18 @@ function MembersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead>Team</TableHead>
               <TableHead>Joined</TableHead>
+              <TableHead>Last Active</TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {members.isLoading || invites.isLoading ? (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+            {members.isLoading || (canManage && invites.isLoading) ? (
+              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">No members match your filters.</TableCell></TableRow>
             ) : (
               filtered.map((r) => {
                 const isSelf = r.userId && r.userId === user?.id;
@@ -353,8 +453,15 @@ function MembersPage() {
                         {r.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground">{r.department}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {r.teams.length === 0 ? "—" : r.teams.length === 1 ? r.teams[0] : `${r.teams[0]} +${r.teams.length - 1}`}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(r.joinedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {r.kind === "member" ? timeAgo(r.lastActive) : "—"}
                     </TableCell>
                     <TableCell>
                       {canManage && (
@@ -390,12 +497,24 @@ function MembersPage() {
                               </>
                             )}
                             {r.kind === "member" && !isSelf && (
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => removeMember.mutate(r.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Remove member
-                              </DropdownMenuItem>
+                              <>
+                                {r.status === "active" ? (
+                                  <DropdownMenuItem onClick={() => setStatus.mutate({ id: r.id, status: "suspended" })}>
+                                    <UserX className="mr-2 h-4 w-4" /> Suspend member
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => setStatus.mutate({ id: r.id, status: "active" })}>
+                                    <UserCheck className="mr-2 h-4 w-4" /> Activate member
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => removeMember.mutate(r.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Remove member
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -419,19 +538,35 @@ function MembersPage() {
   );
 }
 
+function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-semibold">{value}</p>
+        </div>
+        <div className="rounded-lg bg-primary/10 p-2 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function InviteDialog({
   open, onOpenChange, pending, onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   pending: boolean;
-  onSubmit: (v: InviteValues) => void;
+  onSubmit: (v: InviteFormValues) => void;
 }) {
-  const { register, handleSubmit, reset, setValue, watch, formState } = useForm<InviteValues>({
+  const { register, handleSubmit, reset, setValue, watch, formState } = useForm<InviteFormValues>({
     resolver: zodResolver(inviteSchema),
-    defaultValues: { email: "", role: "member" },
+    defaultValues: { email: "", roleKey: "employee" },
   });
-  const role = watch("role");
+  const roleKey = watch("roleKey");
 
   return (
     <Dialog
@@ -464,16 +599,14 @@ function InviteDialog({
           </div>
           <div>
             <Label>Role</Label>
-            <Select value={role} onValueChange={(r) => setValue("role", r as "admin" | "member")}>
+            <Select value={roleKey} onValueChange={(r) => setValue("roleKey", r as InviteFormValues["roleKey"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
+                {RBAC_ROLES.map((r) => (
+                  <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Owner, Manager, Employee and Guest roles are assigned from the Roles page after the member joins.
-            </p>
           </div>
         </form>
         <DialogFooter>
