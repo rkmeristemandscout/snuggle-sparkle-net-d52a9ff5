@@ -127,6 +127,29 @@ function MembersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const fetchEmailStatus = useServerFn(getInvitationEmailStatus);
+  const emailStatusQuery = useQuery({
+    queryKey: ["members-page", "email-status"],
+    queryFn: () => fetchEmailStatus(),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!currentMembership,
+  });
+  const emailConfigured = emailStatusQuery.data?.configured ?? true;
+
+  const copyInviteLink = (token: string) => {
+    const url = `${window.location.origin}/join/${token}`;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Invite link copied", { description: url }),
+      () => toast.error("Couldn't copy — copy manually", { description: url })
+    );
+  };
+  const copyInviteToken = (token: string) => {
+    navigator.clipboard.writeText(token).then(
+      () => toast.success("Invitation token copied"),
+      () => toast.error("Couldn't copy token")
+    );
+  };
+
   const members = useQuery({
     enabled: !!currentOrgId,
     queryKey: ["members-page", "members", currentOrgId],
