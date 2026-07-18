@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInvitationEmailStatus } from "@/lib/invitations.functions";
+import OrgInvitationTemplate from "@/lib/email-templates/organization-invitation";
+const OrgInvitationEmail = OrgInvitationTemplate.component;
 
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentOrg, type OrgRole } from "@/hooks/use-current-org";
@@ -123,6 +125,7 @@ function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const members = useQuery({
     enabled: !!currentOrgId,
@@ -384,9 +387,14 @@ function MembersPage() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" /> Invite Member
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+              <MailWarning className="mr-2 h-4 w-4" /> Preview email
+            </Button>
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" /> Invite Member
+            </Button>
+          </div>
         )}
       </div>
 
@@ -581,6 +589,13 @@ function MembersPage() {
         pending={invite.isPending}
         onSubmit={(v) => invite.mutate(v)}
       />
+
+      <PreviewEmailDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        defaultOrgName={currentMembership?.organization.name ?? "Acme Inc."}
+        defaultInviterName={(user?.user_metadata?.full_name as string | undefined) ?? "Jane Doe"}
+      />
     </div>
   );
 }
@@ -715,6 +730,100 @@ function InviteDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" form="invite-member-form" disabled={pending}>
             {pending ? "Sending…" : "Send Invitation"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PreviewEmailDialog({
+  open,
+  onOpenChange,
+  defaultOrgName,
+  defaultInviterName,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultOrgName: string;
+  defaultInviterName: string;
+}) {
+  const [orgName, setOrgName] = useState(defaultOrgName);
+  const [inviterName, setInviterName] = useState(defaultInviterName);
+  const [inviteUrl, setInviteUrl] = useState(
+    typeof window !== "undefined"
+      ? `${window.location.origin}/invitations/accept?token=preview-token-123`
+      : "https://example.com/invitations/accept?token=preview-token-123"
+  );
+
+  useEffect(() => {
+    if (open) {
+      setOrgName(defaultOrgName);
+      setInviterName(defaultInviterName);
+    }
+  }, [open, defaultOrgName, defaultInviterName]);
+
+  const subject = `You're invited to join ${orgName}`;
+  const previewText = `${inviterName || "A teammate"} invited you to join ${orgName}`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Invitation email preview</DialogTitle>
+          <DialogDescription>
+            Rendered with sample data. Update the fields to see the subject, preview text, and CTA
+            link update in real time.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="preview-org">Organization</Label>
+            <Input id="preview-org" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="preview-inviter">Inviter</Label>
+            <Input
+              id="preview-inviter"
+              value={inviterName}
+              onChange={(e) => setInviterName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="preview-url">Invite URL</Label>
+            <Input
+              id="preview-url"
+              value={inviteUrl}
+              onChange={(e) => setInviteUrl(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
+          <div>
+            <span className="font-medium text-muted-foreground">Subject:</span>{" "}
+            <span className="font-mono">{subject}</span>
+          </div>
+          <div>
+            <span className="font-medium text-muted-foreground">Preview text:</span>{" "}
+            <span className="font-mono">{previewText}</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-white overflow-hidden">
+          <div className="max-h-[420px] overflow-auto">
+            <OrgInvitationEmail
+              organizationName={orgName}
+              inviteUrl={inviteUrl}
+              inviterName={inviterName}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
