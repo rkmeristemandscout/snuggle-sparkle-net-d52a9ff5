@@ -878,6 +878,51 @@ function PreviewEmailDialog({
           </div>
         </div>
 
+        <div className="rounded-lg border p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium">Send test email</p>
+              <p className="text-xs text-muted-foreground">
+                Delivers this rendered template to a real inbox so you can verify it end-to-end.
+              </p>
+            </div>
+          </div>
+          {!emailConfigured && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/60 p-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+              <MailX className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Email delivery isn't configured yet, so test sends are disabled. Set up a verified
+                sender domain in Cloud → Emails to enable this.
+              </span>
+            </div>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              id="preview-test-email"
+              type="email"
+              placeholder="you@example.com"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              disabled={!emailConfigured || testMutation.isPending}
+              autoComplete="email"
+            />
+            <Button
+              type="button"
+              onClick={() => {
+                const email = testEmail.trim();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                  toast.error("Enter a valid email address");
+                  return;
+                }
+                testMutation.mutate(email);
+              }}
+              disabled={!emailConfigured || testMutation.isPending || !testEmail.trim()}
+            >
+              {testMutation.isPending ? "Sending…" : "Send test email"}
+            </Button>
+          </div>
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
