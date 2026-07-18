@@ -365,10 +365,7 @@ function MembersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const sendInvite = useServerFn(
-    // Lazy ref so we don't add another top-level import churn.
-    (await import("@/lib/invitations.functions")).sendInvitationEmail
-  );
+  const sendInvite = useServerFn(sendInvitationEmail);
   const resend = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc("resend_invitation", { _invitation_id: id });
