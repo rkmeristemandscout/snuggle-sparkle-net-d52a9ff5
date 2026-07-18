@@ -501,6 +501,24 @@ function MembersPage() {
     );
   }
 
+  const pendingInviteRows = filtered.filter(
+    (r) => r.kind === "invitation" && r.status === "pending" && r.token,
+  );
+  const selectedCount = pendingInviteRows.filter((r) => selectedInviteIds.has(r.id)).length;
+  const allPendingSelected = pendingInviteRows.length > 0 && selectedCount === pendingInviteRows.length;
+  const toggleSelect = (id: string, on: boolean) => {
+    setSelectedInviteIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const toggleSelectAllPending = (on: boolean) => {
+    setSelectedInviteIds(on ? new Set(pendingInviteRows.map((r) => r.id)) : new Set());
+  };
+
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
