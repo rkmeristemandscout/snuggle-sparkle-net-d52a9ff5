@@ -186,10 +186,25 @@ function ProfilePage() {
     secret: string;
   } | null>(null);
   const [verifyCode, setVerifyCode] = useState("");
+  const [disableMode, setDisableMode] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
 
   const startEnroll = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      // Clean up any leftover unverified TOTP factors — Supabase rejects
+      // a new enroll if a pending/unverified factor already exists.
+      const { data: list } = await supabase.auth.mfa.listFactors();
+      const stale = (list?.totp ?? []).filter((f) => f.status !== "verified");
+      for (const f of stale) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
+      }
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: `Authenticator ${new Date().toISOString().slice(0, 10)}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`,
+        issuer: "Multi-tenant SaaS",
+      });
       if (error) throw error;
       return data;
     },
@@ -226,17 +241,48 @@ function ProfilePage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const disable2fa = useMutation({
+  // Cancel a pending (unverified) enrollment — AAL2 not required.
+  const cancelEnrollment = useMutation({
     mutationFn: async (factorId: string) => {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Two-factor authentication disabled");
+      setEnrollment(null);
+      setVerifyCode("");
       factors.refetch();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Disable a VERIFIED factor. Supabase requires the session to reach AAL2,
+  // so challenge + verify with the current TOTP code before unenrolling.
+  const disableVerified = useMutation({
+    mutationFn: async () => {
+      if (!verifiedTotp) throw new Error("2FA is not enabled");
+      if (disableCode.trim().length !== 6) throw new Error("Enter the 6-digit code");
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({
+        factorId: verifiedTotp.id,
+      });
+      if (cErr) throw cErr;
+      const { error: vErr } = await supabase.auth.mfa.verify({
+        factorId: verifiedTotp.id,
+        challengeId: challenge.id,
+        code: disableCode.trim(),
+      });
+      if (vErr) throw vErr;
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: verifiedTotp.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Two-factor authentication disabled");
+      setDisableMode(false);
+      setDisableCode("");
+      factors.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
   const initials = (profile.data?.full_name || user?.email || "?")
@@ -387,21 +433,66 @@ function ProfilePage() {
             disabled={
               factors.isLoading ||
               startEnroll.isPending ||
-              disable2fa.isPending ||
+              cancelEnrollment.isPending ||
+              disableVerified.isPending ||
               !!enrollment
             }
             onCheckedChange={(checked) => {
-              if (checked && !verifiedTotp) startEnroll.mutate();
-              else if (!checked && verifiedTotp) disable2fa.mutate(verifiedTotp.id);
+              if (checked && !verifiedTotp) {
+                setDisableMode(false);
+                startEnroll.mutate();
+              } else if (!checked && verifiedTotp) {
+                setDisableMode(true);
+              }
             }}
           />
         </div>
 
-        {verifiedTotp && !enrollment && (
+        {verifiedTotp && !enrollment && !disableMode && (
           <p className="text-sm text-emerald-600 dark:text-emerald-400">
             2FA is enabled on this account.
           </p>
         )}
+
+        {verifiedTotp && disableMode && (
+          <div className="space-y-3 rounded-lg border bg-background p-4">
+            <p className="text-sm text-muted-foreground">
+              Enter a 6-digit code from your authenticator app to confirm turning off 2FA.
+            </p>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="totp-disable">Verification code</Label>
+                <Input
+                  id="totp-disable"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => disableVerified.mutate()}
+                disabled={disableCode.length !== 6 || disableVerified.isPending}
+              >
+                {disableVerified.isPending ? "Disabling…" : "Disable 2FA"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDisableMode(false);
+                  setDisableCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
 
         {enrollment && (
           <div className="space-y-3 rounded-lg border bg-background p-4">
@@ -445,7 +536,7 @@ function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  if (enrollment) disable2fa.mutate(enrollment.factorId);
+                  if (enrollment) cancelEnrollment.mutate(enrollment.factorId);
                   setEnrollment(null);
                   setVerifyCode("");
                 }}
