@@ -43,9 +43,10 @@ export const listTeams = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     let q = context.supabase
       .from("teams")
-      .select("id, name, slug, description, owner_id, archived_at, deleted_at, created_at", {
-        count: "exact",
-      })
+      .select(
+        "id, name, slug, description, owner_id, archived_at, deleted_at, created_at, avatar_url, department_id",
+        { count: "exact" },
+      )
       .eq("organization_id", data.organizationId);
 
     if (data.status === "active") q = q.is("deleted_at", null).is("archived_at", null);
@@ -72,6 +73,7 @@ export const listTeams = createServerFn({ method: "GET" })
         : null;
     return { rows: list, nextCursor, total: count ?? null };
   });
+
 
 export const createTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
