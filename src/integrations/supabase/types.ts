@@ -184,6 +184,7 @@ export type Database = {
           manager_id: string | null
           name: string
           organization_id: string
+          parent_id: string | null
           slug: string
           updated_at: string
         }
@@ -197,6 +198,7 @@ export type Database = {
           manager_id?: string | null
           name: string
           organization_id: string
+          parent_id?: string | null
           slug: string
           updated_at?: string
         }
@@ -210,6 +212,7 @@ export type Database = {
           manager_id?: string | null
           name?: string
           organization_id?: string
+          parent_id?: string | null
           slug?: string
           updated_at?: string
         }
@@ -219,6 +222,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -1036,6 +1046,7 @@ export type Database = {
       teams: {
         Row: {
           archived_at: string | null
+          avatar_url: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -1049,6 +1060,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -1062,6 +1074,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -1222,6 +1235,18 @@ export type Database = {
         Args: { _archive: boolean; _team: string }
         Returns: undefined
       }
+      bulk_add_team_members: {
+        Args: { _team: string; _users: string[] }
+        Returns: number
+      }
+      bulk_assign_department_members: {
+        Args: { _dept: string; _users: string[] }
+        Returns: number
+      }
+      bulk_remove_team_members: {
+        Args: { _team: string; _users: string[] }
+        Returns: number
+      }
       can_manage_team: {
         Args: { _team: string; _user: string }
         Returns: boolean
@@ -1299,6 +1324,8 @@ export type Database = {
         Returns: undefined
       }
       get_analytics_snapshot: { Args: { _org: string }; Returns: Json }
+      get_department_stats: { Args: { _dept: string }; Returns: Json }
+      get_team_stats: { Args: { _team: string }; Returns: Json }
       get_user_permissions: {
         Args: { _org: string }
         Returns: {
@@ -1417,6 +1444,10 @@ export type Database = {
       run_background_jobs: { Args: never; Returns: Json }
       set_department_manager: {
         Args: { _dept: string; _manager: string }
+        Returns: undefined
+      }
+      set_department_parent: {
+        Args: { _dept: string; _parent: string }
         Returns: undefined
       }
       set_member_status: {
