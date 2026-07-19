@@ -123,6 +123,122 @@ function ProfilePage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // --- Additional info (phone, bio) ---
+  const additionalForm = useForm<AdditionalValues>({
+    resolver: zodResolver(additionalSchema),
+    defaultValues: { phone: "", bio: "" },
+  });
+  useEffect(() => {
+    if (profile.data)
+      additionalForm.reset({
+        phone: (profile.data as { phone?: string | null }).phone ?? "",
+        bio: (profile.data as { bio?: string | null }).bio ?? "",
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.data]);
+
+  const saveAdditional = useMutation({
+    mutationFn: async (v: AdditionalValues) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ phone: v.phone || null, bio: v.bio || null })
+        .eq("id", user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Details saved");
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- Change password ---
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: { password: "", confirm: "" },
+  });
+  const changePassword = useMutation({
+    mutationFn: async (v: PasswordFormValues) => {
+      const { error } = await supabase.auth.updateUser({ password: v.password });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Password updated");
+      passwordForm.reset({ password: "", confirm: "" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- 2FA (TOTP) ---
+  const factors = useQuery({
+    enabled: !!user,
+    queryKey: ["mfa-factors", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const verifiedTotp = factors.data?.totp?.find((f) => f.status === "verified");
+  const [enrollment, setEnrollment] = useState<{
+    factorId: string;
+    qr: string;
+    secret: string;
+  } | null>(null);
+  const [verifyCode, setVerifyCode] = useState("");
+
+  const startEnroll = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      setEnrollment({
+        factorId: data.id,
+        qr: data.totp.qr_code,
+        secret: data.totp.secret,
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const verifyEnroll = useMutation({
+    mutationFn: async () => {
+      if (!enrollment) throw new Error("No enrollment in progress");
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({
+        factorId: enrollment.factorId,
+      });
+      if (cErr) throw cErr;
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: enrollment.factorId,
+        challengeId: challenge.id,
+        code: verifyCode.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Two-factor authentication enabled");
+      setEnrollment(null);
+      setVerifyCode("");
+      factors.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const disable2fa = useMutation({
+    mutationFn: async (factorId: string) => {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Two-factor authentication disabled");
+      factors.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const initials = (profile.data?.full_name || user?.email || "?")
     .split(/\s+/)
     .map((s) => s[0])
