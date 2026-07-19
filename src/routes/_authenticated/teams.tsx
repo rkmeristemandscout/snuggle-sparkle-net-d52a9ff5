@@ -1194,7 +1194,49 @@ function CreateTeamDialog({
             </p>
           </div>
 
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Color</Label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {COLOR_SWATCHES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Select color ${c}`}
+                    className={`h-7 w-7 rounded-full border-2 transition ${
+                      color === c ? "border-foreground scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-7 w-7 cursor-pointer rounded border bg-transparent p-0"
+                  aria-label="Pick custom color"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="team-status">Status</Label>
+              <Select value={teamStatus} onValueChange={(v) => setTeamStatus(v as typeof teamStatus)}>
+                <SelectTrigger id="team-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="on_hold">On hold</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
+
             <div className="flex items-center justify-between">
               <Label>Initial members</Label>
               {selectedCount > 0 && (
