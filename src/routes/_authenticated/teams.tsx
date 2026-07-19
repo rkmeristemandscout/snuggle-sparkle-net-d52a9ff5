@@ -809,7 +809,7 @@ function TeamCard({
           {team.description || "No description provided."}
         </p>
 
-        <dl className="grid grid-cols-3 gap-2 text-xs">
+        <dl className="grid grid-cols-4 gap-2 text-xs">
           <Stat
             icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
             label="Members"
@@ -821,6 +821,11 @@ function TeamCard({
             value={team.project_count}
           />
           <Stat
+            icon={<ListChecks className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Tasks"
+            value={team.task_count}
+          />
+          <Stat
             icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />}
             label="Created"
             value={new Date(team.created_at).toLocaleDateString(undefined, {
@@ -829,6 +834,7 @@ function TeamCard({
             })}
           />
         </dl>
+
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t pt-4">
           <div className="flex min-w-0 items-center gap-2">
