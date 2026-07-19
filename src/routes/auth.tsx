@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,9 +32,14 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const { mode, redirect } = Route.useSearch();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useSession();
   const [tab, setTab] = useState<"signin" | "signup">(mode);
+
+  if (location.pathname !== "/auth") {
+    return <Outlet />;
+  }
 
   useEffect(() => {
     if (loading || !user) return;
