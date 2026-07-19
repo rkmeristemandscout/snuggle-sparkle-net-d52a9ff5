@@ -106,13 +106,22 @@ export const createDepartment = createServerFn({ method: "POST" })
 
 export const updateDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { departmentId: string } & Partial<z.infer<typeof departmentSchema>>) =>
+  .validator((d: { departmentId: string } & Record<string, unknown>) =>
     z
       .object({
         departmentId: uuid,
         name: z.string().trim().min(2).max(60).optional(),
         slug: slugSchema.optional(),
         description: z.string().trim().max(280).optional().or(z.literal("")),
+        code: z.string().trim().max(20).nullable().optional(),
+        cost_center: z.string().trim().max(60).nullable().optional(),
+        budget: z.number().nonnegative().nullable().optional(),
+        budget_currency: z.string().trim().length(3).nullable().optional(),
+        headcount_limit: z.number().int().positive().nullable().optional(),
+        location: z.string().trim().max(120).nullable().optional(),
+        timezone: z.string().trim().max(60).nullable().optional(),
+        color: z.string().trim().max(20).nullable().optional(),
+        status: z.enum(["active", "on_hold", "planning"]).optional(),
       })
       .parse(d),
   )
@@ -140,15 +149,43 @@ export const updateDepartment = createServerFn({ method: "POST" })
       if (dup) fail("Another department already uses this name or slug");
     }
 
-    const patch: { name?: string; slug?: string; description?: string | null } = {};
-    if (data.name !== undefined) patch.name = data.name;
-    if (data.slug !== undefined) patch.slug = data.slug;
-    if (data.description !== undefined) patch.description = data.description || null;
+    if (data.code) {
+      const { data: dupCode } = await context.supabase
+        .from("departments")
+        .select("id")
+        .eq("organization_id", current!.organization_id)
+        .neq("id", data.departmentId)
+        .is("deleted_at", null)
+        .ilike("code", data.code)
+        .limit(1)
+        .maybeSingle();
+      if (dupCode) fail("Another department already uses this code");
+    }
+
+    const patch: Record<string, unknown> = {};
+    const passthrough = [
+      "name",
+      "slug",
+      "description",
+      "code",
+      "cost_center",
+      "budget",
+      "budget_currency",
+      "headcount_limit",
+      "location",
+      "timezone",
+      "color",
+      "status",
+    ] as const;
+    for (const k of passthrough) {
+      const v = (data as Record<string, unknown>)[k];
+      if (v !== undefined) patch[k] = v === "" ? null : v;
+    }
     const { data: row, error } = await context.supabase
       .from("departments")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.departmentId)
-      .select("id, name, slug, description")
+      .select("*")
       .single();
     if (error) fail(error.message);
     return row!;
@@ -308,4 +345,62 @@ export const getDepartmentMembers = createServerFn({ method: "GET" })
       profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
     }
     return (members ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
+  });
+
+export const getDepartmentTree = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase.rpc("get_department_tree", {
+      _org: data.organizationId,
+    });
+    if (error) fail(error.message);
+    return (rows ?? []) as Array<{
+      id: string;
+      parent_id: string | null;
+      name: string;
+      slug: string;
+      manager_id: string | null;
+      depth: number;
+      path: string[];
+    }>;
+  });
+
+export const getDepartmentRollup = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase.rpc("get_department_rollup", {
+      _dept: data.departmentId,
+    });
+    if (error) fail(error.message);
+    return row as {
+      direct_members: number;
+      total_members: number;
+      sub_department_count: number;
+      projects: number;
+      tasks: number;
+      open_tasks: number;
+    };
+  });
+
+export const transferDepartmentMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { fromDepartmentId: string; toDepartmentId: string | null; userIds: string[] }) =>
+    z
+      .object({
+        fromDepartmentId: uuid,
+        toDepartmentId: uuid.nullable(),
+        userIds: z.array(uuid).min(1).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: n, error } = await context.supabase.rpc("transfer_department_members", {
+      _from: data.fromDepartmentId,
+      _to: data.toDepartmentId as string,
+      _users: data.userIds,
+    });
+    if (error) fail(error.message);
+    return { transferred: n as number };
   });
