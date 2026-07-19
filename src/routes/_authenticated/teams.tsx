@@ -767,19 +767,46 @@ function CreateTeamDialog({
     if (!open) {
       form.reset({ name: "", slug: "", description: "" });
       setLeadId("");
+      setDepartmentId("");
       setInitialMembers({});
+      setAvatarFile(null);
     }
   }, [open, form]);
 
   const create = useMutation({
     mutationFn: async (v: TeamValues) => {
-      const team = await createFn({ data: { organizationId, ...v } });
+      const team = await createFn({
+        data: {
+          organizationId,
+          ...v,
+          departmentId: departmentId || null,
+        },
+      });
       const memberIds = Object.keys(initialMembers).filter((k) => initialMembers[k]);
       if (memberIds.length) {
         await bulkAddFn({ data: { teamId: team.id, userIds: memberIds } });
       }
       if (leadId) {
         await setLeadFn({ data: { teamId: team.id, leadId } });
+      }
+      if (avatarFile) {
+        try {
+          const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "png";
+          const path = `${organizationId}/${team.id}/avatar-${Date.now()}.${ext}`;
+          const up = await supabase.storage
+            .from("team-avatars")
+            .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+          if (up.error) throw up.error;
+          const { data: pub } = supabase.storage.from("team-avatars").getPublicUrl(path);
+          if (pub?.publicUrl) {
+            await setAvatarFn({ data: { teamId: team.id, avatarUrl: pub.publicUrl } });
+          }
+        } catch (e) {
+          // Don't fail creation if avatar upload fails
+          toast.warning(
+            `Team created, but avatar upload failed: ${(e as Error).message}`,
+          );
+        }
       }
       return team;
     },
@@ -790,6 +817,7 @@ function CreateTeamDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const selectedCount = Object.values(initialMembers).filter(Boolean).length;
 
