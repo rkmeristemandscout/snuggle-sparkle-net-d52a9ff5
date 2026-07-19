@@ -194,6 +194,53 @@ export const restoreTeam = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const getTeam = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string }) => z.object({ teamId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("teams")
+      .select(
+        "id, organization_id, name, slug, description, owner_id, archived_at, deleted_at, created_at, updated_at",
+      )
+      .eq("id", data.teamId)
+      .maybeSingle();
+    if (error) fail(error.message);
+    if (!row) fail("Team not found");
+    return row!;
+  });
+
+export const removeTeamLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; newLeadId: string }) =>
+    z.object({ teamId: uuid, newLeadId: uuid }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // A team must always have an owner; safely transfer ownership to the new lead.
+    const { data: team } = await context.supabase
+      .from("teams")
+      .select("id, organization_id, owner_id")
+      .eq("id", data.teamId)
+      .maybeSingle();
+    if (!team) fail("Team not found");
+    if (team!.owner_id === data.newLeadId) return { ok: true };
+
+    const { data: member } = await context.supabase
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", team!.organization_id)
+      .eq("user_id", data.newLeadId)
+      .maybeSingle();
+    if (!member) fail("New lead must be an organization member");
+
+    const { error } = await context.supabase
+      .from("teams")
+      .update({ owner_id: data.newLeadId })
+      .eq("id", data.teamId);
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
 export const setTeamLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { teamId: string; leadId: string }) =>
