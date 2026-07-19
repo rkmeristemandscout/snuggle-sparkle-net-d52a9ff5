@@ -114,14 +114,14 @@ function TeamDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, name, slug, status, progress, due_date, created_at")
+        .select("id, name, slug, status, due_date, created_at")
         .eq("team_id", teamId)
-        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
   });
+
 
   const inSameOrg = team.data?.organization_id === currentMembership?.organization.id;
   const isOwner = team.data?.owner_id === user?.id;
