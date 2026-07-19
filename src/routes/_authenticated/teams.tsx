@@ -685,12 +685,14 @@ function TeamCard({
   onArchive,
   onRestore,
   onDelete,
+  onDuplicate,
 }: {
   team: EnrichedTeam;
   canManage: boolean;
   onArchive: () => void;
   onRestore: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const initials = team.name
     .split(/\s+/)
