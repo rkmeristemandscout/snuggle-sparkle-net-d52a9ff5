@@ -15,7 +15,9 @@ import {
   deleteTeam,
   setTeamLead,
   bulkAddTeamMembers,
+  updateTeamAvatar,
 } from "@/lib/teams.functions";
+
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
@@ -62,8 +64,10 @@ import {
   Archive,
   ArchiveRestore,
   ArrowRight,
+  Building2,
   CalendarDays,
   FolderKanban,
+  ImagePlus,
   MoreHorizontal,
   Plus,
   Search,
@@ -72,6 +76,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/teams")({
   component: TeamsPage,
@@ -87,12 +92,15 @@ type TeamRow = {
   deleted_at: string | null;
   created_at: string;
   avatar_url?: string | null;
+  department_id?: string | null;
 };
 
 type EnrichedTeam = TeamRow & {
   owner?: { full_name: string | null; avatar_url: string | null } | null;
+  department?: { id: string; name: string } | null;
   member_count: number;
   project_count: number;
+
 };
 
 type StatusFilter = "active" | "archived";
@@ -147,8 +155,11 @@ function TeamsPage() {
       const rows = res.rows as TeamRow[];
       const ownerIds = Array.from(new Set(rows.map((t) => t.owner_id)));
       const teamIds = rows.map((t) => t.id);
+      const deptIds = Array.from(
+        new Set(rows.map((t) => t.department_id).filter((v): v is string => !!v)),
+      );
 
-      const [profilesRes, membersRes, projectsRes] = await Promise.all([
+      const [profilesRes, membersRes, projectsRes, deptsRes] = await Promise.all([
         ownerIds.length
           ? supabase
               .from("profiles")
@@ -165,10 +176,16 @@ function TeamsPage() {
               .in("team_id", teamIds)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] as { team_id: string | null }[] }),
+        deptIds.length
+          ? supabase.from("departments").select("id, name").in("id", deptIds)
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
       ]);
 
       const owners = Object.fromEntries(
         (profilesRes.data ?? []).map((p) => [p.id, p]),
+      );
+      const depts = Object.fromEntries(
+        (deptsRes.data ?? []).map((d) => [d.id, d]),
       );
       const memberCounts: Record<string, number> = {};
       (membersRes.data ?? []).forEach((m) => {
@@ -183,6 +200,7 @@ function TeamsPage() {
         rows: rows.map((t) => ({
           ...t,
           owner: owners[t.owner_id] ?? null,
+          department: t.department_id ? depts[t.department_id] ?? null : null,
           member_count: memberCounts[t.id] ?? 0,
           project_count: projectCounts[t.id] ?? 0,
         })),
@@ -190,6 +208,7 @@ function TeamsPage() {
       };
     },
   });
+
 
   // Realtime
   useEffect(() => {
@@ -525,9 +544,21 @@ function TeamCard({
                 </Badge>
               )}
             </div>
-            <p className="truncate font-mono text-xs text-muted-foreground">
-              /{team.slug}
-            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                /{team.slug}
+              </span>
+              {team.department && (
+                <Badge
+                  variant="secondary"
+                  className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium"
+                >
+                  <Building2 className="h-3 w-3" aria-hidden="true" />
+                  {team.department.name}
+                </Badge>
+              )}
+            </div>
+
           </div>
           {canManage && (
             <DropdownMenu>
@@ -659,9 +690,39 @@ function CreateTeamDialog({
   const createFn = useServerFn(createTeam);
   const setLeadFn = useServerFn(setTeamLead);
   const bulkAddFn = useServerFn(bulkAddTeamMembers);
+  const setAvatarFn = useServerFn(updateTeamAvatar);
 
   const [leadId, setLeadId] = useState<string>("");
+  const [departmentId, setDepartmentId] = useState<string>("");
   const [initialMembers, setInitialMembers] = useState<Record<string, boolean>>({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  const departments = useQuery({
+    enabled: open,
+    queryKey: ["departments-for-new-team", organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .eq("organization_id", organizationId)
+        .is("deleted_at", null)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 
   const orgMembers = useQuery({
     enabled: open,
@@ -706,19 +767,46 @@ function CreateTeamDialog({
     if (!open) {
       form.reset({ name: "", slug: "", description: "" });
       setLeadId("");
+      setDepartmentId("");
       setInitialMembers({});
+      setAvatarFile(null);
     }
   }, [open, form]);
 
   const create = useMutation({
     mutationFn: async (v: TeamValues) => {
-      const team = await createFn({ data: { organizationId, ...v } });
+      const team = await createFn({
+        data: {
+          organizationId,
+          ...v,
+          departmentId: departmentId || null,
+        },
+      });
       const memberIds = Object.keys(initialMembers).filter((k) => initialMembers[k]);
       if (memberIds.length) {
         await bulkAddFn({ data: { teamId: team.id, userIds: memberIds } });
       }
       if (leadId) {
         await setLeadFn({ data: { teamId: team.id, leadId } });
+      }
+      if (avatarFile) {
+        try {
+          const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "png";
+          const path = `${organizationId}/${team.id}/avatar-${Date.now()}.${ext}`;
+          const up = await supabase.storage
+            .from("team-avatars")
+            .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+          if (up.error) throw up.error;
+          const { data: pub } = supabase.storage.from("team-avatars").getPublicUrl(path);
+          if (pub?.publicUrl) {
+            await setAvatarFn({ data: { teamId: team.id, avatarUrl: pub.publicUrl } });
+          }
+        } catch (e) {
+          // Don't fail creation if avatar upload fails
+          toast.warning(
+            `Team created, but avatar upload failed: ${(e as Error).message}`,
+          );
+        }
       }
       return team;
     },
@@ -729,6 +817,7 @@ function CreateTeamDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const selectedCount = Object.values(initialMembers).filter(Boolean).length;
 
@@ -745,6 +834,62 @@ function CreateTeamDialog({
           onSubmit={form.handleSubmit((v) => create.mutate(v))}
           className="space-y-4"
         >
+          <div className="flex items-center gap-3">
+            <div className="relative h-16 w-16 shrink-0">
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt=""
+                  className="h-16 w-16 rounded-xl border object-cover"
+                />
+              ) : (
+                <div className="grid h-16 w-16 place-items-center rounded-xl border bg-gradient-to-br from-primary/15 to-primary/5 text-primary">
+                  <UsersRound className="h-6 w-6" aria-hidden="true" />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Label htmlFor="team-avatar-file" className="text-sm">
+                Team avatar
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild variant="outline" size="sm" type="button">
+                  <label htmlFor="team-avatar-file" className="cursor-pointer">
+                    <ImagePlus className="mr-1 h-4 w-4" />
+                    {avatarFile ? "Change" : "Upload"}
+                  </label>
+                </Button>
+                {avatarFile && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAvatarFile(null)}
+                  >
+                    Remove
+                  </Button>
+                )}
+                <input
+                  id="team-avatar-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    if (f && f.size > 2 * 1024 * 1024) {
+                      toast.error("Avatar must be under 2 MB");
+                      return;
+                    }
+                    setAvatarFile(f);
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                PNG, JPG, WEBP, or SVG · max 2 MB
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="team-name">Name</Label>
             <Input
@@ -802,6 +947,29 @@ function CreateTeamDialog({
               If empty, you become the lead. You can transfer this later.
             </p>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="team-department">Department</Label>
+            <Select
+              value={departmentId || "__none__"}
+              onValueChange={(v) => setDepartmentId(v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger id="team-department">
+                <SelectValue placeholder="No department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No department</SelectItem>
+                {(departments.data ?? []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Optionally group this team under a department (e.g. Engineering, Sales).
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Initial members</Label>
