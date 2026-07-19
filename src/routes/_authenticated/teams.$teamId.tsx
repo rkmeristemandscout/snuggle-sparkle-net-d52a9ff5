@@ -310,7 +310,7 @@ function TeamDetail() {
   });
 
   const changeRole = useMutation({
-    mutationFn: async (v: { id: string; role: string }) => {
+    mutationFn: async (v: { id: string; role: "member" | "owner" }) => {
       const { error } = await supabase
         .from("team_members")
         .update({ role: v.role })
@@ -323,6 +323,7 @@ function TeamDetail() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const bulkAdd = useMutation({
