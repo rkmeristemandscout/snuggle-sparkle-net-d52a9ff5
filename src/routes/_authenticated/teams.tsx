@@ -632,6 +632,7 @@ function TeamsPage() {
               }
               onRestore={() => restoreMut.mutate(t.id)}
               onDelete={() => setPendingDelete(t)}
+              onDuplicate={() => dupMut.mutate(t.id)}
             />
           ))}
         </div>
