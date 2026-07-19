@@ -435,6 +435,9 @@ function TeamsPage() {
         )}
       </header>
 
+      {/* Stats */}
+      <TeamsStats stats={stats.data} loading={stats.isLoading} />
+
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 sm:min-w-[240px]">
@@ -460,7 +463,7 @@ function TeamsPage() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:flex-wrap sm:gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
             <SelectTrigger
               className="h-11 w-full sm:h-10 sm:w-[140px]"
@@ -471,6 +474,44 @@ function TeamsPage() {
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={departmentId || "__all"}
+            onValueChange={(v) => setDepartmentId(v === "__all" ? "" : v)}
+          >
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[170px]"
+              aria-label="Filter by department"
+            >
+              <SelectValue placeholder="All departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All departments</SelectItem>
+              {(departmentsList.data ?? []).map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={managerId || "__all"}
+            onValueChange={(v) => setManagerId(v === "__all" ? "" : v)}
+          >
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[170px]"
+              aria-label="Filter by manager"
+            >
+              <SelectValue placeholder="All managers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All managers</SelectItem>
+              {(managersList.data ?? []).map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as SortBy)}>
@@ -484,8 +525,35 @@ function TeamsPage() {
               <SelectItem value="newest">Newest first</SelectItem>
               <SelectItem value="oldest">Oldest first</SelectItem>
               <SelectItem value="az">Name (A–Z)</SelectItem>
+              <SelectItem value="za">Name (Z–A)</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              teams.refetch();
+              stats.refetch();
+            }}
+            disabled={teams.isFetching}
+            className="h-9"
+          >
+            <RefreshCw
+              className={`mr-1 h-4 w-4 ${teams.isFetching ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCsv}
+            disabled={!rows.length}
+            className="h-9"
+          >
+            <Download className="mr-1 h-4 w-4" /> Export
+          </Button>
         </div>
         {activeFilterCount > 0 && (
           <Button
@@ -494,6 +562,8 @@ function TeamsPage() {
             onClick={() => {
               setSearch("");
               setStatus("active");
+              setDepartmentId("");
+              setManagerId("");
             }}
             className="h-9 self-start text-muted-foreground"
           >
@@ -501,6 +571,7 @@ function TeamsPage() {
           </Button>
         )}
       </div>
+
 
       {/* Grid */}
       {teams.isLoading ? (
