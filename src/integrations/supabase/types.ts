@@ -175,30 +175,39 @@ export type Database = {
       }
       departments: {
         Row: {
+          archived_at: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           id: string
+          manager_id: string | null
           name: string
           organization_id: string
           slug: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
+          manager_id?: string | null
           name: string
           organization_id: string
           slug: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
+          manager_id?: string | null
           name?: string
           organization_id?: string
           slug?: string
@@ -1026,8 +1035,10 @@ export type Database = {
       }
       teams: {
         Row: {
+          archived_at: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           id: string
           name: string
@@ -1037,8 +1048,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           name: string
@@ -1048,8 +1061,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           name?: string
@@ -1198,6 +1213,14 @@ export type Database = {
           last_sign_in_at: string
           org_count: number
         }[]
+      }
+      archive_department: {
+        Args: { _archive: boolean; _dept: string }
+        Returns: undefined
+      }
+      archive_team: {
+        Args: { _archive: boolean; _team: string }
+        Returns: undefined
       }
       can_manage_team: {
         Args: { _team: string; _user: string }
@@ -1388,8 +1411,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      restore_department: { Args: { _dept: string }; Returns: undefined }
+      restore_team: { Args: { _team: string }; Returns: undefined }
       revoke_api_key: { Args: { _id: string }; Returns: undefined }
       run_background_jobs: { Args: never; Returns: Json }
+      set_department_manager: {
+        Args: { _dept: string; _manager: string }
+        Returns: undefined
+      }
       set_member_status: {
         Args: { _member_id: string; _status: string }
         Returns: undefined
@@ -1397,6 +1426,8 @@ export type Database = {
       shares_org_with: { Args: { _other: string }; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      soft_delete_department: { Args: { _dept: string }; Returns: undefined }
+      soft_delete_team: { Args: { _team: string }; Returns: undefined }
       team_org: { Args: { _team: string }; Returns: string }
       write_audit_log: {
         Args: {

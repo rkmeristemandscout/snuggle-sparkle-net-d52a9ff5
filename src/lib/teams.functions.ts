@@ -5,22 +5,72 @@ import { teamSchema, slugSchema } from "@/lib/auth-schemas";
 
 const uuid = z.string().uuid();
 
-/** RLS enforces tenant isolation on every call. */
 function fail(msg: string): never {
   throw new Error(msg);
 }
 
+const statusFilter = z.enum(["active", "archived", "deleted", "all"]).default("active");
+const sortField = z.enum(["created_at", "name"]).default("created_at");
+const sortDir = z.enum(["asc", "desc"]).default("desc");
+
 export const listTeams = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
+  .validator(
+    (d: {
+      organizationId: string;
+      search?: string;
+      status?: "active" | "archived" | "deleted" | "all";
+      sort?: "created_at" | "name";
+      dir?: "asc" | "desc";
+      limit?: number;
+      cursor?: { created_at: string; id: string } | null;
+    }) =>
+      z
+        .object({
+          organizationId: uuid,
+          search: z.string().trim().max(80).optional(),
+          status: statusFilter,
+          sort: sortField,
+          dir: sortDir,
+          limit: z.number().int().min(1).max(100).default(20),
+          cursor: z
+            .object({ created_at: z.string(), id: uuid })
+            .nullable()
+            .optional(),
+        })
+        .parse(d),
+  )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    let q = context.supabase
       .from("teams")
-      .select("id, name, slug, description, owner_id, created_at")
-      .eq("organization_id", data.organizationId)
-      .order("created_at", { ascending: true });
+      .select("id, name, slug, description, owner_id, archived_at, deleted_at, created_at", {
+        count: "exact",
+      })
+      .eq("organization_id", data.organizationId);
+
+    if (data.status === "active") q = q.is("deleted_at", null).is("archived_at", null);
+    else if (data.status === "archived")
+      q = q.is("deleted_at", null).not("archived_at", "is", null);
+    else if (data.status === "deleted") q = q.not("deleted_at", "is", null);
+
+    if (data.search) q = q.ilike("name", `%${data.search}%`);
+
+    const asc = data.dir === "asc";
+    q = q.order(data.sort, { ascending: asc }).order("id", { ascending: asc }).limit(data.limit);
+
+    if (data.cursor && data.sort === "created_at") {
+      const op = asc ? "gt" : "lt";
+      q = q[op]("created_at", data.cursor.created_at);
+    }
+
+    const { data: rows, error, count } = await q;
     if (error) fail(error.message);
-    return rows ?? [];
+    const list = rows ?? [];
+    const nextCursor =
+      list.length === data.limit
+        ? { created_at: list[list.length - 1].created_at, id: list[list.length - 1].id }
+        : null;
+    return { rows: list, nextCursor, total: count ?? null };
   });
 
 export const createTeam = createServerFn({ method: "POST" })
@@ -29,6 +79,16 @@ export const createTeam = createServerFn({ method: "POST" })
     z.object({ organizationId: uuid }).merge(teamSchema).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: dup } = await context.supabase
+      .from("teams")
+      .select("id")
+      .eq("organization_id", data.organizationId)
+      .is("deleted_at", null)
+      .or(`slug.eq.${data.slug},name.ilike.${data.name}`)
+      .limit(1)
+      .maybeSingle();
+    if (dup) fail("A team with this name or slug already exists");
+
     const { data: row, error } = await context.supabase
       .from("teams")
       .insert({
@@ -59,6 +119,29 @@ export const updateTeam = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: current } = await context.supabase
+      .from("teams")
+      .select("id, organization_id")
+      .eq("id", data.teamId)
+      .maybeSingle();
+    if (!current) fail("Team not found");
+
+    if (data.name || data.slug) {
+      const filters: string[] = [];
+      if (data.slug) filters.push(`slug.eq.${data.slug}`);
+      if (data.name) filters.push(`name.ilike.${data.name}`);
+      const { data: dup } = await context.supabase
+        .from("teams")
+        .select("id")
+        .eq("organization_id", current!.organization_id)
+        .neq("id", data.teamId)
+        .is("deleted_at", null)
+        .or(filters.join(","))
+        .limit(1)
+        .maybeSingle();
+      if (dup) fail("Another team already uses this name or slug");
+    }
+
     const patch: {
       name?: string;
       slug?: string;
@@ -83,7 +166,44 @@ export const deleteTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { teamId: string }) => z.object({ teamId: uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("teams").delete().eq("id", data.teamId);
+    const { error } = await context.supabase.rpc("soft_delete_team", { _team: data.teamId });
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
+export const archiveTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; archive: boolean }) =>
+    z.object({ teamId: uuid, archive: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("archive_team", {
+      _team: data.teamId,
+      _archive: data.archive,
+    });
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
+export const restoreTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string }) => z.object({ teamId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("restore_team", { _team: data.teamId });
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
+export const setTeamLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; leadId: string }) =>
+    z.object({ teamId: uuid, leadId: uuid }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("teams")
+      .update({ owner_id: data.leadId })
+      .eq("id", data.teamId);
     if (error) fail(error.message);
     return { ok: true };
   });
