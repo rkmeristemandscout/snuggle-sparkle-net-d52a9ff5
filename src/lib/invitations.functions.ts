@@ -15,8 +15,75 @@ const sendSchema = z.object({
 });
 
 type SendResult =
-  | { sent: true }
+  | { sent: true; via?: "supabase_auth" | "resend" }
   | { sent: false; reason: "not_configured" | "suppressed" | "failed"; detail?: string };
+
+// Send invite via Supabase Auth (`inviteUserByEmail`) so the recipient
+// gets a real auth email + account provisioning on click. Falls back to
+// the branded Resend template when the address already has an account
+// (Supabase Auth rejects invites for existing users).
+const authInviteSchema = z.object({
+  email: z.string().email(),
+  token: z.string().min(10),
+  organizationId: z.string().uuid(),
+  inviterName: z.string().optional(),
+});
+
+export const sendAuthInvitation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((v: unknown) => authInviteSchema.parse(v))
+  .handler(async ({ data, context }): Promise<SendResult> => {
+    // Defense-in-depth: verify caller is owner/admin of this org.
+    const { data: membership } = await context.supabase
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", data.organizationId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!membership || !["owner", "admin"].includes(membership.role as string)) {
+      return { sent: false, reason: "failed", detail: "not_admin" };
+    }
+
+    const origin =
+      process.env.APP_URL ||
+      process.env.PUBLIC_APP_URL ||
+      "https://snuggle-sparkle-net.lovable.app";
+    const redirectTo = `${origin.replace(/\/$/, "")}/join/${data.token}`;
+
+    const { data: org } = await context.supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", data.organizationId)
+      .maybeSingle();
+    const orgName = org?.name ?? "your organization";
+    const inviter = data.inviterName ?? "A teammate";
+
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+        redirectTo,
+        data: {
+          organization_id: data.organizationId,
+          organization_name: orgName,
+          invitation_token: data.token,
+          invited_by_name: inviter,
+        },
+      });
+      if (!error) return { sent: true, via: "supabase_auth" };
+      const msg = (error.message || "").toLowerCase();
+      const alreadyExists =
+        msg.includes("already") || msg.includes("registered") || error.status === 422;
+      if (!alreadyExists) console.error("[auth-invite] inviteUserByEmail failed", error);
+    } catch (err: any) {
+      console.error("[auth-invite] unexpected", err);
+    }
+
+    return await sendViaResend({
+      to: data.email,
+      subject: `You're invited to join ${orgName}`,
+      html: renderInviteHtml({ orgName, inviteUrl: redirectTo, inviter }),
+    });
+  });
 
 export const sendInvitationEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
