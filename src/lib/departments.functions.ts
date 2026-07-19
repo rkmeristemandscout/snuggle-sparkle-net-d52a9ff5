@@ -203,3 +203,19 @@ export const setDepartmentManager = createServerFn({ method: "POST" })
     if (error) fail(error.message);
     return { ok: true };
   });
+
+export const getDepartment = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("departments")
+      .select(
+        "id, organization_id, name, slug, description, manager_id, archived_at, deleted_at, created_at, updated_at",
+      )
+      .eq("id", data.departmentId)
+      .maybeSingle();
+    if (error) fail(error.message);
+    if (!row) fail("Department not found");
+    return row!;
+  });
