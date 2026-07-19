@@ -834,6 +834,62 @@ function CreateTeamDialog({
           onSubmit={form.handleSubmit((v) => create.mutate(v))}
           className="space-y-4"
         >
+          <div className="flex items-center gap-3">
+            <div className="relative h-16 w-16 shrink-0">
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt=""
+                  className="h-16 w-16 rounded-xl border object-cover"
+                />
+              ) : (
+                <div className="grid h-16 w-16 place-items-center rounded-xl border bg-gradient-to-br from-primary/15 to-primary/5 text-primary">
+                  <UsersRound className="h-6 w-6" aria-hidden="true" />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Label htmlFor="team-avatar-file" className="text-sm">
+                Team avatar
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild variant="outline" size="sm" type="button">
+                  <label htmlFor="team-avatar-file" className="cursor-pointer">
+                    <ImagePlus className="mr-1 h-4 w-4" />
+                    {avatarFile ? "Change" : "Upload"}
+                  </label>
+                </Button>
+                {avatarFile && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAvatarFile(null)}
+                  >
+                    Remove
+                  </Button>
+                )}
+                <input
+                  id="team-avatar-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    if (f && f.size > 2 * 1024 * 1024) {
+                      toast.error("Avatar must be under 2 MB");
+                      return;
+                    }
+                    setAvatarFile(f);
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                PNG, JPG, WEBP, or SVG · max 2 MB
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="team-name">Name</Label>
             <Input
