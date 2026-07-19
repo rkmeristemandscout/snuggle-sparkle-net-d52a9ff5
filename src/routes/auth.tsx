@@ -37,11 +37,8 @@ function AuthPage() {
   const { user, loading } = useSession();
   const [tab, setTab] = useState<"signin" | "signup">(mode);
 
-  if (location.pathname !== "/auth") {
-    return <Outlet />;
-  }
-
   useEffect(() => {
+    if (location.pathname !== "/auth") return;
     if (loading || !user) return;
     const pending =
       typeof window !== "undefined"
@@ -53,7 +50,11 @@ function AuthPage() {
       return;
     }
     navigate({ to: redirect ?? "/dashboard" });
-  }, [user, loading, navigate, redirect]);
+  }, [user, loading, navigate, redirect, location.pathname]);
+
+  if (location.pathname !== "/auth") {
+    return <Outlet />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
