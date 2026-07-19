@@ -64,8 +64,10 @@ import {
   Archive,
   ArchiveRestore,
   ArrowRight,
+  Building2,
   CalendarDays,
   FolderKanban,
+  ImagePlus,
   MoreHorizontal,
   Plus,
   Search,
@@ -74,6 +76,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/teams")({
   component: TeamsPage,
