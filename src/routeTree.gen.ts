@@ -37,6 +37,7 @@ import { Route as AuthenticatedActivityRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedTeamsTeamIdRouteImport } from './routes/_authenticated/teams.$teamId'
 import { Route as AuthenticatedSettingsEmailRouteImport } from './routes/_authenticated/settings.email'
 import { Route as AuthenticatedOrganizationsSlugRouteImport } from './routes/_authenticated/organizations.$slug'
+import { Route as AuthenticatedDepartmentsDepartmentIdRouteImport } from './routes/_authenticated/departments.$departmentId'
 import { Route as AuthenticatedBillingPlansRouteImport } from './routes/_authenticated/billing.plans'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe.webhook'
 import { Route as ApiPublicJobsCleanupRouteImport } from './routes/api/public/jobs.cleanup'
@@ -189,6 +190,12 @@ const AuthenticatedOrganizationsSlugRoute =
     path: '/$slug',
     getParentRoute: () => AuthenticatedOrganizationsRoute,
   } as any)
+const AuthenticatedDepartmentsDepartmentIdRoute =
+  AuthenticatedDepartmentsDepartmentIdRouteImport.update({
+    id: '/$departmentId',
+    path: '/$departmentId',
+    getParentRoute: () => AuthenticatedDepartmentsRoute,
+  } as any)
 const AuthenticatedBillingPlansRoute =
   AuthenticatedBillingPlansRouteImport.update({
     id: '/plans',
@@ -228,7 +235,7 @@ export interface FileRoutesByFullPath {
   '/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/billing': typeof AuthenticatedBillingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/departments': typeof AuthenticatedDepartmentsRoute
+  '/departments': typeof AuthenticatedDepartmentsRouteWithChildren
   '/feature-flags': typeof AuthenticatedFeatureFlagsRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/members': typeof AuthenticatedMembersRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/join/$token': typeof JoinTokenRoute
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
+  '/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
   '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
@@ -262,7 +270,7 @@ export interface FileRoutesByTo {
   '/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/billing': typeof AuthenticatedBillingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/departments': typeof AuthenticatedDepartmentsRoute
+  '/departments': typeof AuthenticatedDepartmentsRouteWithChildren
   '/feature-flags': typeof AuthenticatedFeatureFlagsRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/members': typeof AuthenticatedMembersRoute
@@ -278,6 +286,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/join/$token': typeof JoinTokenRoute
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
+  '/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
   '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
@@ -298,7 +307,7 @@ export interface FileRoutesById {
   '/_authenticated/audit-logs': typeof AuthenticatedAuditLogsRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/departments': typeof AuthenticatedDepartmentsRoute
+  '/_authenticated/departments': typeof AuthenticatedDepartmentsRouteWithChildren
   '/_authenticated/feature-flags': typeof AuthenticatedFeatureFlagsRoute
   '/_authenticated/invitations': typeof AuthenticatedInvitationsRoute
   '/_authenticated/members': typeof AuthenticatedMembersRoute
@@ -314,6 +323,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/join/$token': typeof JoinTokenRoute
   '/_authenticated/billing/plans': typeof AuthenticatedBillingPlansRoute
+  '/_authenticated/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/_authenticated/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
   '/_authenticated/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/_authenticated/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/join/$token'
     | '/billing/plans'
+    | '/departments/$departmentId'
     | '/organizations/$slug'
     | '/settings/email'
     | '/teams/$teamId'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/join/$token'
     | '/billing/plans'
+    | '/departments/$departmentId'
     | '/organizations/$slug'
     | '/settings/email'
     | '/teams/$teamId'
@@ -419,6 +431,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/join/$token'
     | '/_authenticated/billing/plans'
+    | '/_authenticated/departments/$departmentId'
     | '/_authenticated/organizations/$slug'
     | '/_authenticated/settings/email'
     | '/_authenticated/teams/$teamId'
@@ -635,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationsSlugRouteImport
       parentRoute: typeof AuthenticatedOrganizationsRoute
     }
+    '/_authenticated/departments/$departmentId': {
+      id: '/_authenticated/departments/$departmentId'
+      path: '/$departmentId'
+      fullPath: '/departments/$departmentId'
+      preLoaderRoute: typeof AuthenticatedDepartmentsDepartmentIdRouteImport
+      parentRoute: typeof AuthenticatedDepartmentsRoute
+    }
     '/_authenticated/billing/plans': {
       id: '/_authenticated/billing/plans'
       path: '/plans'
@@ -683,6 +703,21 @@ const AuthenticatedBillingRouteChildren: AuthenticatedBillingRouteChildren = {
 
 const AuthenticatedBillingRouteWithChildren =
   AuthenticatedBillingRoute._addFileChildren(AuthenticatedBillingRouteChildren)
+
+interface AuthenticatedDepartmentsRouteChildren {
+  AuthenticatedDepartmentsDepartmentIdRoute: typeof AuthenticatedDepartmentsDepartmentIdRoute
+}
+
+const AuthenticatedDepartmentsRouteChildren: AuthenticatedDepartmentsRouteChildren =
+  {
+    AuthenticatedDepartmentsDepartmentIdRoute:
+      AuthenticatedDepartmentsDepartmentIdRoute,
+  }
+
+const AuthenticatedDepartmentsRouteWithChildren =
+  AuthenticatedDepartmentsRoute._addFileChildren(
+    AuthenticatedDepartmentsRouteChildren,
+  )
 
 interface AuthenticatedOrganizationsSlugRouteChildren {
   AuthenticatedOrganizationsSlugMembersRoute: typeof AuthenticatedOrganizationsSlugMembersRoute
@@ -749,7 +784,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAuditLogsRoute: typeof AuthenticatedAuditLogsRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDepartmentsRoute: typeof AuthenticatedDepartmentsRoute
+  AuthenticatedDepartmentsRoute: typeof AuthenticatedDepartmentsRouteWithChildren
   AuthenticatedFeatureFlagsRoute: typeof AuthenticatedFeatureFlagsRoute
   AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
   AuthenticatedMembersRoute: typeof AuthenticatedMembersRoute
@@ -770,7 +805,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAuditLogsRoute: AuthenticatedAuditLogsRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDepartmentsRoute: AuthenticatedDepartmentsRoute,
+  AuthenticatedDepartmentsRoute: AuthenticatedDepartmentsRouteWithChildren,
   AuthenticatedFeatureFlagsRoute: AuthenticatedFeatureFlagsRoute,
   AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
   AuthenticatedMembersRoute: AuthenticatedMembersRoute,

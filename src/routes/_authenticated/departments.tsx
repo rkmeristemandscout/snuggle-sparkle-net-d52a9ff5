@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -285,7 +285,13 @@ function DepartmentsPage() {
                   <div className="flex items-center justify-between">
                     <div className="min-w-0">
                       <p className="truncate font-medium">
-                        {d.name}
+                        <Link
+                          to="/departments/$departmentId"
+                          params={{ departmentId: d.id }}
+                          className="hover:underline"
+                        >
+                          {d.name}
+                        </Link>
                         {d.archived_at && !d.deleted_at && (
                           <Badge variant="outline" className="ml-2">Archived</Badge>
                         )}

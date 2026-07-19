@@ -288,3 +288,78 @@ export const removeTeamMember = createServerFn({ method: "POST" })
     if (error) fail(error.message);
     return { ok: true };
   });
+
+export const getTeamStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string }) => z.object({ teamId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase.rpc("get_team_stats", {
+      _team: data.teamId,
+    });
+    if (error) fail(error.message);
+    return row as {
+      member_count: number;
+      project_count: number;
+      created_at: string;
+      owner_id: string;
+    } | null;
+  });
+
+export const bulkAddTeamMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; userIds: string[] }) =>
+    z.object({ teamId: uuid, userIds: z.array(uuid).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: added, error } = await context.supabase.rpc("bulk_add_team_members", {
+      _team: data.teamId,
+      _users: data.userIds,
+    });
+    if (error) fail(error.message);
+    return { added: added as number };
+  });
+
+export const bulkRemoveTeamMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; userIds: string[] }) =>
+    z.object({ teamId: uuid, userIds: z.array(uuid).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: removed, error } = await context.supabase.rpc("bulk_remove_team_members", {
+      _team: data.teamId,
+      _users: data.userIds,
+    });
+    if (error) fail(error.message);
+    return { removed: removed as number };
+  });
+
+export const updateTeamAvatar = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; avatarUrl: string | null }) =>
+    z.object({ teamId: uuid, avatarUrl: z.string().url().nullable() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("teams")
+      .update({ avatar_url: data.avatarUrl })
+      .eq("id", data.teamId);
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
+export const getTeamActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string; limit?: number }) =>
+    z.object({ teamId: uuid, limit: z.number().int().min(1).max(100).default(30) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("activity_logs")
+      .select("id, action, summary, metadata, actor_id, created_at")
+      .eq("entity_type", "team")
+      .eq("entity_id", data.teamId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (error) fail(error.message);
+    return rows ?? [];
+  });
