@@ -421,3 +421,25 @@ export const transferDepartmentMembers = createServerFn({ method: "POST" })
     if (error) fail(error.message);
     return { transferred: n as number };
   });
+
+export const getDepartmentMemberCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("organization_members")
+      .select("department_id")
+      .eq("organization_id", data.organizationId);
+    if (error) fail(error.message);
+    const byDept: Record<string, number> = {};
+    let totalAssigned = 0;
+    let totalMembers = 0;
+    for (const r of rows ?? []) {
+      totalMembers += 1;
+      if (r.department_id) {
+        byDept[r.department_id] = (byDept[r.department_id] ?? 0) + 1;
+        totalAssigned += 1;
+      }
+    }
+    return { byDept, totalAssigned, totalMembers };
+  });
