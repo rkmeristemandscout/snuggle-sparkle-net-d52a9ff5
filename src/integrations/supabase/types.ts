@@ -1074,46 +1074,55 @@ export type Database = {
         Row: {
           archived_at: string | null
           avatar_url: string | null
+          color: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
           department_id: string | null
           description: string | null
+          icon: string | null
           id: string
           name: string
           organization_id: string
           owner_id: string
           slug: string
+          status: string
           updated_at: string
         }
         Insert: {
           archived_at?: string | null
           avatar_url?: string | null
+          color?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           department_id?: string | null
           description?: string | null
+          icon?: string | null
           id?: string
           name: string
           organization_id: string
           owner_id: string
           slug: string
+          status?: string
           updated_at?: string
         }
         Update: {
           archived_at?: string | null
           avatar_url?: string | null
+          color?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           department_id?: string | null
           description?: string | null
+          icon?: string | null
           id?: string
           name?: string
           organization_id?: string
           owner_id?: string
           slug?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -1376,6 +1385,7 @@ export type Database = {
         }[]
       }
       get_team_stats: { Args: { _team: string }; Returns: Json }
+      get_teams_dashboard_stats: { Args: { _org: string }; Returns: Json }
       get_user_permissions: {
         Args: { _org: string }
         Returns: {

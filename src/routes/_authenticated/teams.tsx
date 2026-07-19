@@ -16,6 +16,8 @@ import {
   setTeamLead,
   bulkAddTeamMembers,
   updateTeamAvatar,
+  duplicateTeam,
+  getTeamsDashboardStats,
 } from "@/lib/teams.functions";
 
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -66,10 +68,14 @@ import {
   ArrowRight,
   Building2,
   CalendarDays,
+  Copy,
+  Download,
   FolderKanban,
   ImagePlus,
+  ListChecks,
   MoreHorizontal,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   Users,
@@ -91,8 +97,12 @@ type TeamRow = {
   archived_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  updated_at?: string | null;
   avatar_url?: string | null;
   department_id?: string | null;
+  color?: string | null;
+  icon?: string | null;
+  status?: string | null;
 };
 
 type EnrichedTeam = TeamRow & {
@@ -100,11 +110,11 @@ type EnrichedTeam = TeamRow & {
   department?: { id: string; name: string } | null;
   member_count: number;
   project_count: number;
-
+  task_count: number;
 };
 
 type StatusFilter = "active" | "archived";
-type SortBy = "newest" | "oldest" | "az";
+type SortBy = "newest" | "oldest" | "az" | "za";
 
 function TeamsPage() {
   const { currentMembership } = useCurrentOrg();
@@ -118,6 +128,8 @@ function TeamsPage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<SortBy>("newest");
+  const [departmentId, setDepartmentId] = useState<string>("");
+  const [managerId, setManagerId] = useState<string>("");
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EnrichedTeam | null>(null);
 
@@ -133,6 +145,7 @@ function TeamsPage() {
 
   const sortConfig = useMemo(() => {
     if (sort === "az") return { sort: "name" as const, dir: "asc" as const };
+    if (sort === "za") return { sort: "name" as const, dir: "desc" as const };
     if (sort === "oldest")
       return { sort: "created_at" as const, dir: "asc" as const };
     return { sort: "created_at" as const, dir: "desc" as const };
@@ -140,7 +153,7 @@ function TeamsPage() {
 
   const teams = useQuery({
     enabled: !!org,
-    queryKey: ["teams", org?.id, status, debounced, sort],
+    queryKey: ["teams", org?.id, status, debounced, sort, departmentId, managerId],
     queryFn: async (): Promise<{ rows: EnrichedTeam[]; total: number | null }> => {
       const res = await listFn({
         data: {
@@ -149,7 +162,9 @@ function TeamsPage() {
           search: debounced || undefined,
           sort: sortConfig.sort,
           dir: sortConfig.dir,
-          limit: 60,
+          departmentId: departmentId || null,
+          managerId: managerId || null,
+          limit: 100,
         },
       });
       const rows = res.rows as TeamRow[];
@@ -159,7 +174,7 @@ function TeamsPage() {
         new Set(rows.map((t) => t.department_id).filter((v): v is string => !!v)),
       );
 
-      const [profilesRes, membersRes, projectsRes, deptsRes] = await Promise.all([
+      const [profilesRes, membersRes, projectsRes, deptsRes, tasksRes] = await Promise.all([
         ownerIds.length
           ? supabase
               .from("profiles")
@@ -172,14 +187,29 @@ function TeamsPage() {
         teamIds.length
           ? supabase
               .from("projects")
-              .select("team_id")
+              .select("id, team_id")
               .in("team_id", teamIds)
               .is("deleted_at", null)
-          : Promise.resolve({ data: [] as { team_id: string | null }[] }),
+          : Promise.resolve({ data: [] as { id: string; team_id: string | null }[] }),
         deptIds.length
           ? supabase.from("departments").select("id, name").in("id", deptIds)
           : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        Promise.resolve({ data: [] as { project_id: string | null; status: string }[] }),
       ]);
+
+      const projectIds = (projectsRes.data ?? [])
+        .map((p) => p.id)
+        .filter((v): v is string => !!v);
+      let taskRows: { project_id: string | null; status: string }[] = [];
+      if (projectIds.length) {
+        const { data: t } = await supabase
+          .from("tasks")
+          .select("project_id, status")
+          .in("project_id", projectIds)
+          .not("status", "in", "(done,cancelled)");
+        taskRows = t ?? [];
+      }
+      void tasksRes;
 
       const owners = Object.fromEntries(
         (profilesRes.data ?? []).map((p) => [p.id, p]),
@@ -192,8 +222,17 @@ function TeamsPage() {
         memberCounts[m.team_id] = (memberCounts[m.team_id] ?? 0) + 1;
       });
       const projectCounts: Record<string, number> = {};
+      const projectToTeam: Record<string, string> = {};
       (projectsRes.data ?? []).forEach((p) => {
-        if (p.team_id) projectCounts[p.team_id] = (projectCounts[p.team_id] ?? 0) + 1;
+        if (p.team_id) {
+          projectCounts[p.team_id] = (projectCounts[p.team_id] ?? 0) + 1;
+          if (p.id) projectToTeam[p.id] = p.team_id;
+        }
+      });
+      const taskCounts: Record<string, number> = {};
+      taskRows.forEach((t) => {
+        const teamId = t.project_id ? projectToTeam[t.project_id] : null;
+        if (teamId) taskCounts[teamId] = (taskCounts[teamId] ?? 0) + 1;
       });
 
       return {
@@ -203,9 +242,53 @@ function TeamsPage() {
           department: t.department_id ? depts[t.department_id] ?? null : null,
           member_count: memberCounts[t.id] ?? 0,
           project_count: projectCounts[t.id] ?? 0,
+          task_count: taskCounts[t.id] ?? 0,
         })),
         total: res.total,
       };
+    },
+  });
+
+  const statsFn = useServerFn(getTeamsDashboardStats);
+  const stats = useQuery({
+    enabled: !!org,
+    queryKey: ["teams-stats", org?.id],
+    queryFn: async () => statsFn({ data: { organizationId: org!.id } }),
+  });
+
+  const departmentsList = useQuery({
+    enabled: !!org,
+    queryKey: ["departments-for-teams-filter", org?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .eq("organization_id", org!.id)
+        .is("deleted_at", null)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const managersList = useQuery({
+    enabled: !!org,
+    queryKey: ["managers-for-teams-filter", org?.id],
+    queryFn: async () => {
+      const { data: memRows } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", org!.id);
+      const ids = Array.from(new Set((memRows ?? []).map((m) => m.user_id)));
+      if (!ids.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      return (profs ?? []).map((p) => ({
+        id: p.id,
+        name: p.full_name || p.id.slice(0, 8),
+      }));
     },
   });
 
@@ -259,8 +342,59 @@ function TeamsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const dupFn = useServerFn(duplicateTeam);
+  const dupMut = useMutation({
+    mutationFn: async (teamId: string) => dupFn({ data: { teamId } }),
+    onSuccess: () => {
+      toast.success("Team duplicated");
+      qc.invalidateQueries({ queryKey: ["teams", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const rows = teams.data?.rows ?? [];
-  const activeFilterCount = (debounced ? 1 : 0) + (status !== "active" ? 1 : 0);
+  const activeFilterCount =
+    (debounced ? 1 : 0) +
+    (status !== "active" ? 1 : 0) +
+    (departmentId ? 1 : 0) +
+    (managerId ? 1 : 0);
+
+  const exportCsv = () => {
+    const header = [
+      "Name",
+      "Slug",
+      "Status",
+      "Department",
+      "Manager",
+      "Members",
+      "Projects",
+      "Open tasks",
+      "Created",
+    ];
+    const lines = rows.map((t) =>
+      [
+        t.name,
+        t.slug,
+        t.archived_at ? "archived" : t.status || "active",
+        t.department?.name ?? "",
+        t.owner?.full_name ?? "",
+        t.member_count,
+        t.project_count,
+        t.task_count,
+        new Date(t.created_at).toISOString(),
+      ]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `teams-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!org) {
     return (
@@ -301,6 +435,9 @@ function TeamsPage() {
         )}
       </header>
 
+      {/* Stats */}
+      <TeamsStats stats={stats.data} loading={stats.isLoading} />
+
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 sm:min-w-[240px]">
@@ -326,7 +463,7 @@ function TeamsPage() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:flex-wrap sm:gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
             <SelectTrigger
               className="h-11 w-full sm:h-10 sm:w-[140px]"
@@ -337,6 +474,44 @@ function TeamsPage() {
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={departmentId || "__all"}
+            onValueChange={(v) => setDepartmentId(v === "__all" ? "" : v)}
+          >
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[170px]"
+              aria-label="Filter by department"
+            >
+              <SelectValue placeholder="All departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All departments</SelectItem>
+              {(departmentsList.data ?? []).map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={managerId || "__all"}
+            onValueChange={(v) => setManagerId(v === "__all" ? "" : v)}
+          >
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[170px]"
+              aria-label="Filter by manager"
+            >
+              <SelectValue placeholder="All managers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All managers</SelectItem>
+              {(managersList.data ?? []).map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as SortBy)}>
@@ -350,8 +525,35 @@ function TeamsPage() {
               <SelectItem value="newest">Newest first</SelectItem>
               <SelectItem value="oldest">Oldest first</SelectItem>
               <SelectItem value="az">Name (A–Z)</SelectItem>
+              <SelectItem value="za">Name (Z–A)</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              teams.refetch();
+              stats.refetch();
+            }}
+            disabled={teams.isFetching}
+            className="h-9"
+          >
+            <RefreshCw
+              className={`mr-1 h-4 w-4 ${teams.isFetching ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCsv}
+            disabled={!rows.length}
+            className="h-9"
+          >
+            <Download className="mr-1 h-4 w-4" /> Export
+          </Button>
         </div>
         {activeFilterCount > 0 && (
           <Button
@@ -360,6 +562,8 @@ function TeamsPage() {
             onClick={() => {
               setSearch("");
               setStatus("active");
+              setDepartmentId("");
+              setManagerId("");
             }}
             className="h-9 self-start text-muted-foreground"
           >
@@ -367,6 +571,7 @@ function TeamsPage() {
           </Button>
         )}
       </div>
+
 
       {/* Grid */}
       {teams.isLoading ? (
@@ -427,6 +632,7 @@ function TeamsPage() {
               }
               onRestore={() => restoreMut.mutate(t.id)}
               onDelete={() => setPendingDelete(t)}
+              onDuplicate={() => dupMut.mutate(t.id)}
             />
           ))}
         </div>
@@ -479,12 +685,14 @@ function TeamCard({
   onArchive,
   onRestore,
   onDelete,
+  onDuplicate,
 }: {
   team: EnrichedTeam;
   canManage: boolean;
   onArchive: () => void;
   onRestore: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const initials = team.name
     .split(/\s+/)
@@ -582,6 +790,9 @@ function TeamCard({
                     <Archive className="mr-2 h-4 w-4" /> Archive
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
@@ -598,7 +809,7 @@ function TeamCard({
           {team.description || "No description provided."}
         </p>
 
-        <dl className="grid grid-cols-3 gap-2 text-xs">
+        <dl className="grid grid-cols-4 gap-2 text-xs">
           <Stat
             icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
             label="Members"
@@ -610,6 +821,11 @@ function TeamCard({
             value={team.project_count}
           />
           <Stat
+            icon={<ListChecks className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Tasks"
+            value={team.task_count}
+          />
+          <Stat
             icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />}
             label="Created"
             value={new Date(team.created_at).toLocaleDateString(undefined, {
@@ -618,6 +834,7 @@ function TeamCard({
             })}
           />
         </dl>
+
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t pt-4">
           <div className="flex min-w-0 items-center gap-2">
@@ -697,6 +914,9 @@ function CreateTeamDialog({
   const [initialMembers, setInitialMembers] = useState<Record<string, boolean>>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [color, setColor] = useState<string>("#3b82f6");
+  const [teamStatus, setTeamStatus] = useState<"active" | "archived" | "on_hold">("active");
+  const COLOR_SWATCHES = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444", "#6366f1", "#14b8a6"];
 
   useEffect(() => {
     if (!avatarFile) {
@@ -770,6 +990,8 @@ function CreateTeamDialog({
       setDepartmentId("");
       setInitialMembers({});
       setAvatarFile(null);
+      setColor("#3b82f6");
+      setTeamStatus("active");
     }
   }, [open, form]);
 
@@ -780,6 +1002,8 @@ function CreateTeamDialog({
           organizationId,
           ...v,
           departmentId: departmentId || null,
+          color,
+          status: teamStatus,
         },
       });
       const memberIds = Object.keys(initialMembers).filter((k) => initialMembers[k]);
@@ -970,7 +1194,49 @@ function CreateTeamDialog({
             </p>
           </div>
 
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Color</Label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {COLOR_SWATCHES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Select color ${c}`}
+                    className={`h-7 w-7 rounded-full border-2 transition ${
+                      color === c ? "border-foreground scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-7 w-7 cursor-pointer rounded border bg-transparent p-0"
+                  aria-label="Pick custom color"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="team-status">Status</Label>
+              <Select value={teamStatus} onValueChange={(v) => setTeamStatus(v as typeof teamStatus)}>
+                <SelectTrigger id="team-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="on_hold">On hold</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
+
             <div className="flex items-center justify-between">
               <Label>Initial members</Label>
               {selectedCount > 0 && (
@@ -1031,5 +1297,42 @@ function CreateTeamDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type DashboardStats = {
+  total_teams: number;
+  active_teams: number;
+  archived_teams: number;
+  total_members: number;
+  active_projects: number;
+  pending_tasks: number;
+} | null | undefined;
+
+function TeamsStats({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
+  const items: Array<{ label: string; value: number | string; icon: React.ReactNode; tone: string }> = [
+    { label: "Total teams", value: stats?.total_teams ?? 0, icon: <UsersRound className="h-4 w-4" />, tone: "from-primary/15 to-primary/5 text-primary" },
+    { label: "Active", value: stats?.active_teams ?? 0, icon: <ArrowRight className="h-4 w-4" />, tone: "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400" },
+    { label: "Archived", value: stats?.archived_teams ?? 0, icon: <Archive className="h-4 w-4" />, tone: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400" },
+    { label: "Members", value: stats?.total_members ?? 0, icon: <Users className="h-4 w-4" />, tone: "from-blue-500/15 to-blue-500/5 text-blue-600 dark:text-blue-400" },
+    { label: "Active projects", value: stats?.active_projects ?? 0, icon: <FolderKanban className="h-4 w-4" />, tone: "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400" },
+    { label: "Pending tasks", value: stats?.pending_tasks ?? 0, icon: <ListChecks className="h-4 w-4" />, tone: "from-pink-500/15 to-pink-500/5 text-pink-600 dark:text-pink-400" },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {items.map((it) => (
+        <div key={it.label} className="rounded-xl border bg-card p-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">{it.label}</span>
+            <span className={`grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br ${it.tone}`}>
+              {it.icon}
+            </span>
+          </div>
+          <div className="mt-2 text-xl font-bold tabular-nums">
+            {loading ? <Skeleton className="h-6 w-10" /> : it.value}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
