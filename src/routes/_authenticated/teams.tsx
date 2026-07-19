@@ -342,8 +342,59 @@ function TeamsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const dupFn = useServerFn(duplicateTeam);
+  const dupMut = useMutation({
+    mutationFn: async (teamId: string) => dupFn({ data: { teamId } }),
+    onSuccess: () => {
+      toast.success("Team duplicated");
+      qc.invalidateQueries({ queryKey: ["teams", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const rows = teams.data?.rows ?? [];
-  const activeFilterCount = (debounced ? 1 : 0) + (status !== "active" ? 1 : 0);
+  const activeFilterCount =
+    (debounced ? 1 : 0) +
+    (status !== "active" ? 1 : 0) +
+    (departmentId ? 1 : 0) +
+    (managerId ? 1 : 0);
+
+  const exportCsv = () => {
+    const header = [
+      "Name",
+      "Slug",
+      "Status",
+      "Department",
+      "Manager",
+      "Members",
+      "Projects",
+      "Open tasks",
+      "Created",
+    ];
+    const lines = rows.map((t) =>
+      [
+        t.name,
+        t.slug,
+        t.archived_at ? "archived" : t.status || "active",
+        t.department?.name ?? "",
+        t.owner?.full_name ?? "",
+        t.member_count,
+        t.project_count,
+        t.task_count,
+        new Date(t.created_at).toISOString(),
+      ]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `teams-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!org) {
     return (
