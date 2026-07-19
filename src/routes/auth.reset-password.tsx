@@ -22,16 +22,46 @@ function ResetPage() {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    // Supabase puts recovery tokens in the URL hash and auto-establishes a session.
+    let cancelled = false;
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
+
+    (async () => {
+      // PKCE flow: recovery link redirects with ?code=... — exchange for a session.
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      const errDesc = url.searchParams.get("error_description");
+      if (errDesc) {
+        setError(errDesc);
+        return;
+      }
+      if (code) {
+        const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (exErr) {
+          setError(exErr.message);
+          return;
+        }
+        // Clean the code from the URL.
+        window.history.replaceState({}, "", url.pathname);
+        setReady(true);
+        return;
+      }
+      // Legacy hash flow: getSession picks it up.
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled && data.session) setReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
+
 
   async function onSubmit(values: ResetValues) {
     setLoading(true);
@@ -47,10 +77,14 @@ function ResetPage() {
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
         <h1 className="text-xl font-semibold">Set a new password</h1>
         {!ready ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Open this page from the password-reset link in your email.
-          </p>
+          <div className="mt-4 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Open this page from the password-reset link in your email.
+            </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
         ) : (
+
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="password">New password</Label>
