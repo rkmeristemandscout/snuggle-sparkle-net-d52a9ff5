@@ -211,7 +211,7 @@ export const getDepartment = createServerFn({ method: "GET" })
     const { data: row, error } = await context.supabase
       .from("departments")
       .select(
-        "id, organization_id, name, slug, description, manager_id, archived_at, deleted_at, created_at, updated_at",
+        "id, organization_id, name, slug, description, manager_id, parent_id, archived_at, deleted_at, created_at, updated_at",
       )
       .eq("id", data.departmentId)
       .maybeSingle();
