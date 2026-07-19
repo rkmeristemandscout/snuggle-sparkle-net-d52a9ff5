@@ -77,8 +77,12 @@ export const listTeams = createServerFn({ method: "GET" })
 
 export const createTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { organizationId: string } & z.infer<typeof teamSchema>) =>
-    z.object({ organizationId: uuid }).merge(teamSchema).parse(d),
+  .validator(
+    (d: { organizationId: string; departmentId?: string | null } & z.infer<typeof teamSchema>) =>
+      z
+        .object({ organizationId: uuid, departmentId: uuid.nullable().optional() })
+        .merge(teamSchema)
+        .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { data: dup } = await context.supabase
@@ -91,6 +95,16 @@ export const createTeam = createServerFn({ method: "POST" })
       .maybeSingle();
     if (dup) fail("A team with this name or slug already exists");
 
+    if (data.departmentId) {
+      const { data: dep } = await context.supabase
+        .from("departments")
+        .select("id, organization_id")
+        .eq("id", data.departmentId)
+        .maybeSingle();
+      if (!dep || dep.organization_id !== data.organizationId)
+        fail("Department must belong to the same organization");
+    }
+
     const { data: row, error } = await context.supabase
       .from("teams")
       .insert({
@@ -100,12 +114,14 @@ export const createTeam = createServerFn({ method: "POST" })
         description: data.description || null,
         owner_id: context.userId,
         created_by: context.userId,
+        department_id: data.departmentId ?? null,
       })
-      .select("id, name, slug, description, owner_id")
+      .select("id, name, slug, description, owner_id, department_id")
       .single();
     if (error) fail(error.message);
     return row!;
   });
+
 
 export const updateTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
