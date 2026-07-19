@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useForm } from "react-hook-form";
@@ -7,7 +7,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { teamSchema, type TeamValues } from "@/lib/auth-schemas";
-import { createTeam, updateTeam, deleteTeam } from "@/lib/teams.functions";
+import {
+  createTeam,
+  updateTeam,
+  deleteTeam,
+  listTeams,
+  archiveTeam,
+  restoreTeam,
+} from "@/lib/teams.functions";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useSession } from "@/hooks/use-session";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -16,6 +23,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, X, Check } from "lucide-react";
+import { Pencil, Trash2, X, Check, Archive, ArchiveRestore, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/teams")({
   component: TeamsPage,
@@ -39,9 +53,13 @@ type TeamRow = {
   slug: string;
   description: string | null;
   owner_id: string;
+  archived_at: string | null;
+  deleted_at: string | null;
   created_at: string;
-  owner: { full_name: string | null } | null;
+  owner?: { full_name: string | null } | null;
 };
+
+type StatusFilter = "active" | "archived" | "deleted";
 
 function TeamsPage() {
   const { user } = useSession();
@@ -52,21 +70,38 @@ function TeamsPage() {
   const isAdmin = currentMembership?.role === "owner" || currentMembership?.role === "admin";
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<StatusFilter>("active");
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const create = useServerFn(createTeam);
-  const del = useServerFn(deleteTeam);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const listFn = useServerFn(listTeams);
+  const createFn = useServerFn(createTeam);
+  const delFn = useServerFn(deleteTeam);
+  const archiveFn = useServerFn(archiveTeam);
+  const restoreFn = useServerFn(restoreTeam);
 
   const teams = useQuery({
     enabled: !!org,
-    queryKey: ["teams", org?.id],
-    queryFn: async (): Promise<TeamRow[]> => {
-      const { data, error } = await supabase
-        .from("teams")
-        .select("id, name, slug, description, owner_id, created_at")
-        .eq("organization_id", org!.id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      const ids = Array.from(new Set((data ?? []).map((t) => t.owner_id)));
+    queryKey: ["teams", org?.id, status, debounced, sortDir],
+    queryFn: async () => {
+      const res = await listFn({
+        data: {
+          organizationId: org!.id,
+          status,
+          search: debounced || undefined,
+          sort: "created_at",
+          dir: sortDir,
+          limit: 50,
+        },
+      });
+      const rows = res.rows as TeamRow[];
+      const ids = Array.from(new Set(rows.map((t) => t.owner_id)));
       let owners: Record<string, { full_name: string | null }> = {};
       if (ids.length) {
         const { data: profs } = await supabase
@@ -75,9 +110,28 @@ function TeamsPage() {
           .in("id", ids);
         owners = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
-      return (data ?? []).map((t) => ({ ...t, owner: owners[t.owner_id] ?? null }));
+      return {
+        rows: rows.map((t) => ({ ...t, owner: owners[t.owner_id] ?? null })),
+        total: res.total,
+      };
     },
   });
+
+  // Realtime
+  useEffect(() => {
+    if (!org) return;
+    const ch = supabase
+      .channel(`teams-${org.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "teams", filter: `organization_id=eq.${org.id}` },
+        () => qc.invalidateQueries({ queryKey: ["teams", org.id] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [org, qc]);
 
   const { register, handleSubmit, reset, formState } = useForm<TeamValues>({
     resolver: zodResolver(teamSchema),
@@ -87,7 +141,7 @@ function TeamsPage() {
   const createMut = useMutation({
     mutationFn: async (v: TeamValues) => {
       if (!org) throw new Error("Missing organization");
-      return create({ data: { organizationId: org.id, ...v } });
+      return createFn({ data: { organizationId: org.id, ...v } });
     },
     onSuccess: () => {
       toast.success("Team created");
@@ -98,13 +152,33 @@ function TeamsPage() {
   });
 
   const delMut = useMutation({
-    mutationFn: async (teamId: string) => del({ data: { teamId } }),
+    mutationFn: async (teamId: string) => delFn({ data: { teamId } }),
     onSuccess: () => {
       toast.success("Team deleted");
       qc.invalidateQueries({ queryKey: ["teams", org?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const archiveMut = useMutation({
+    mutationFn: async (v: { teamId: string; archive: boolean }) => archiveFn({ data: v }),
+    onSuccess: (_d, v) => {
+      toast.success(v.archive ? "Team archived" : "Team unarchived");
+      qc.invalidateQueries({ queryKey: ["teams", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: async (teamId: string) => restoreFn({ data: { teamId } }),
+    onSuccess: () => {
+      toast.success("Team restored");
+      qc.invalidateQueries({ queryKey: ["teams", org?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows = useMemo(() => teams.data?.rows ?? [], [teams.data]);
 
   if (!org) {
     return (
@@ -117,12 +191,47 @@ function TeamsPage() {
   return (
     <div className="grid gap-6 md:grid-cols-3">
       <section className="rounded-xl border bg-card p-6 md:col-span-2">
-        <h2 className="text-lg font-semibold">Teams in {org.name}</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold">Teams in {org.name}</h2>
+          {teams.data?.total != null && (
+            <Badge variant="secondary">{teams.data.total} total</Badge>
+          )}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search teams…"
+              className="pl-8"
+            />
+          </div>
+          <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="deleted">Deleted</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortDir} onValueChange={(v) => setSortDir(v as "asc" | "desc")}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">Newest first</SelectItem>
+              <SelectItem value="asc">Oldest first</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {teams.isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
-        ) : teams.data && teams.data.length > 0 ? (
+        ) : teams.isError ? (
+          <p className="mt-4 text-sm text-destructive">
+            {(teams.error as Error).message}
+          </p>
+        ) : rows.length > 0 ? (
           <ul className="mt-4 divide-y">
-            {teams.data.map((t) =>
+            {rows.map((t) =>
               editingId === t.id ? (
                 <EditTeamRow
                   key={t.id}
@@ -136,13 +245,19 @@ function TeamsPage() {
               ) : (
                 <li key={t.id} className="flex items-center justify-between py-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{t.name}</p>
+                    <p className="truncate font-medium">
+                      {t.name}
+                      {t.archived_at && !t.deleted_at && (
+                        <Badge variant="outline" className="ml-2">Archived</Badge>
+                      )}
+                      {t.deleted_at && (
+                        <Badge variant="destructive" className="ml-2">Deleted</Badge>
+                      )}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      /{t.slug} · owner {t.owner?.full_name ?? "unknown"}
+                      /{t.slug} · lead {t.owner?.full_name ?? "unknown"}
                       {t.owner_id === user?.id && (
-                        <Badge variant="secondary" className="ml-2">
-                          You
-                        </Badge>
+                        <Badge variant="secondary" className="ml-2">You</Badge>
                       )}
                     </p>
                     {t.description && (
@@ -152,13 +267,27 @@ function TeamsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to="/teams/$teamId" params={{ teamId: t.id }}>
-                        Open
-                      </Link>
-                    </Button>
-                    {(t.owner_id === user?.id || isAdmin) && (
+                    {!t.deleted_at && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/teams/$teamId" params={{ teamId: t.id }}>Open</Link>
+                      </Button>
+                    )}
+                    {(t.owner_id === user?.id || isAdmin) && !t.deleted_at && (
                       <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t.archived_at ? "Unarchive" : "Archive"}
+                          onClick={() =>
+                            archiveMut.mutate({ teamId: t.id, archive: !t.archived_at })
+                          }
+                        >
+                          {t.archived_at ? (
+                            <ArchiveRestore className="h-4 w-4" />
+                          ) : (
+                            <Archive className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -177,7 +306,7 @@ function TeamsPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete {t.name}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This removes the team and all its members. This can't be undone.
+                                The team will be soft-deleted and can be restored from the Deleted filter.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -190,13 +319,18 @@ function TeamsPage() {
                         </AlertDialog>
                       </>
                     )}
+                    {t.deleted_at && isAdmin && (
+                      <Button size="sm" variant="outline" onClick={() => restoreMut.mutate(t.id)}>
+                        Restore
+                      </Button>
+                    )}
                   </div>
                 </li>
               ),
             )}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">No teams yet.</p>
+          <p className="mt-4 text-sm text-muted-foreground">No teams match.</p>
         )}
       </section>
 
