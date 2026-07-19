@@ -91,24 +91,48 @@ function ResetPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="password">New password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                {...register("password")}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="pr-10"
+                  {...register("password")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 z-10 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {formState.errors.password && (
                 <p className="mt-1 text-xs text-destructive">{formState.errors.password.message}</p>
               )}
             </div>
             <div>
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input
-                id="confirm"
-                type="password"
-                autoComplete="new-password"
-                {...register("confirm")}
-              />
+              <div className="relative">
+                <Input
+                  id="confirm"
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="pr-10"
+                  {...register("confirm")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  className="absolute inset-y-0 right-0 z-10 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {formState.errors.confirm && (
                 <p className="mt-1 text-xs text-destructive">{formState.errors.confirm.message}</p>
               )}
