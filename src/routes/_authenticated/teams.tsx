@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -39,8 +40,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +61,7 @@ import {
 import {
   Archive,
   ArchiveRestore,
+  ArrowRight,
   CalendarDays,
   FolderKanban,
   MoreHorizontal,
@@ -59,6 +70,7 @@ import {
   Trash2,
   Users,
   UsersRound,
+  X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/teams")({
@@ -99,6 +111,7 @@ function TeamsPage() {
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<SortBy>("newest");
   const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<EnrichedTeam | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -221,12 +234,14 @@ function TeamsPage() {
     mutationFn: async (teamId: string) => delFn({ data: { teamId } }),
     onSuccess: () => {
       toast.success("Team deleted");
+      setPendingDelete(null);
       qc.invalidateQueries({ queryKey: ["teams", org?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const rows = teams.data?.rows ?? [];
+  const activeFilterCount = (debounced ? 1 : 0) + (status !== "active" ? 1 : 0);
 
   if (!org) {
     return (
@@ -239,93 +254,150 @@ function TeamsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Teams</h1>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:items-center">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">
+            Teams
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Groups of people collaborating in {org.name}.
-            {teams.data?.total != null && ` · ${teams.data.total} total`}
+            Groups collaborating in{" "}
+            <span className="font-medium text-foreground">{org.name}</span>
+            {teams.data?.total != null && (
+              <span className="ml-1 text-muted-foreground/70">
+                · {teams.data.total} total
+              </span>
+            )}
           </p>
         </div>
         {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Create team
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="shrink-0 shadow-sm"
+            size="sm"
+          >
+            <Plus className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Create team</span>
+            <span className="sr-only sm:hidden">Create team</span>
           </Button>
         )}
-      </div>
+      </header>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative flex-1 sm:min-w-[240px]">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search teams…"
-            className="pl-8"
+            className="h-11 pl-9 pr-9 sm:h-10"
+            aria-label="Search teams"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as SortBy)}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest first</SelectItem>
-            <SelectItem value="oldest">Oldest first</SelectItem>
-            <SelectItem value="az">Name (A–Z)</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:gap-2">
+          <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[140px]"
+              aria-label="Filter by status"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortBy)}>
+            <SelectTrigger
+              className="h-11 w-full sm:h-10 sm:w-[170px]"
+              aria-label="Sort teams"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="az">Name (A–Z)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {activeFilterCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch("");
+              setStatus("active");
+            }}
+            className="h-9 self-start text-muted-foreground"
+          >
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {/* Grid */}
       {teams.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-xl border bg-card p-5">
+            <div key={i} className="rounded-2xl border bg-card p-5">
               <div className="flex items-center gap-3">
-                <Skeleton className="h-12 w-12 rounded-lg" />
-                <div className="flex-1 space-y-2">
+                <Skeleton className="h-12 w-12 rounded-xl" />
+                <div className="min-w-0 flex-1 space-y-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-20" />
                 </div>
               </div>
               <Skeleton className="mt-4 h-3 w-full" />
               <Skeleton className="mt-2 h-3 w-4/5" />
+              <div className="mt-4 flex gap-2">
+                <Skeleton className="h-6 w-20 rounded-md" />
+                <Skeleton className="h-6 w-20 rounded-md" />
+              </div>
             </div>
           ))}
         </div>
       ) : teams.isError ? (
-        <div className="rounded-xl border border-destructive/40 bg-card p-6 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive"
+        >
           {(teams.error as Error).message}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border bg-card p-10 text-center">
-          <UsersRound className="mx-auto h-10 w-10 text-muted-foreground" />
-          <h3 className="mt-3 text-lg font-semibold">
+        <div className="rounded-2xl border border-dashed bg-card p-8 text-center sm:p-12">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <UsersRound className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <h3 className="mt-4 text-lg font-semibold">
             {debounced ? "No teams match your search" : "No teams yet"}
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             {canCreate
-              ? "Create the first team to start collaborating."
-              : "Ask an admin to create a team."}
+              ? "Create the first team to start collaborating on projects and initiatives."
+              : "Ask an admin to create a team you can join."}
           </p>
           {canCreate && (
-            <Button className="mt-4" onClick={() => setCreateOpen(true)}>
+            <Button className="mt-5" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-1 h-4 w-4" /> Create team
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((t) => (
             <TeamCard
               key={t.id}
@@ -335,10 +407,7 @@ function TeamsPage() {
                 archiveMut.mutate({ teamId: t.id, archive: !t.archived_at })
               }
               onRestore={() => restoreMut.mutate(t.id)}
-              onDelete={() => {
-                if (confirm(`Delete team "${t.name}"? This can't be undone.`))
-                  delMut.mutate(t.id);
-              }}
+              onDelete={() => setPendingDelete(t)}
             />
           ))}
         </div>
@@ -349,6 +418,38 @@ function TeamsPage() {
         onOpenChange={setCreateOpen}
         organizationId={org.id}
       />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete team “{pendingDelete?.name}”?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the team and its memberships. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={delMut.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={delMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) delMut.mutate(pendingDelete.id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {delMut.isPending ? "Deleting…" : "Delete team"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -366,103 +467,181 @@ function TeamCard({
   onRestore: () => void;
   onDelete: () => void;
 }) {
-  const initials = team.name.slice(0, 2).toUpperCase();
+  const initials = team.name
+    .split(/\s+/)
+    .map((s) => s[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   const isArchived = !!team.archived_at;
+  const leadInitials = (team.owner?.full_name ?? "?")
+    .split(/\s+/)
+    .map((s) => s[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className="group relative flex flex-col rounded-xl border bg-card p-5 transition-colors hover:border-primary/50">
-      <div className="flex items-start gap-3">
-        {team.avatar_url ? (
-          <img
-            src={team.avatar_url}
-            alt=""
-            className="h-12 w-12 rounded-lg border object-cover"
-          />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted text-sm font-semibold text-muted-foreground">
-            {initials}
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Link
-              to="/teams/$teamId"
-              params={{ teamId: team.id }}
-              className="truncate text-base font-semibold hover:underline"
+    <article
+      className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50"
+      aria-label={`Team ${team.name}`}
+    >
+      {/* Accent bar */}
+      <div
+        className="h-1 w-full bg-gradient-to-r from-primary/70 via-primary/40 to-transparent"
+        aria-hidden="true"
+      />
+
+      <div className="flex flex-col gap-4 p-5">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+          {team.avatar_url ? (
+            <img
+              src={team.avatar_url}
+              alt=""
+              className="h-12 w-12 shrink-0 rounded-xl border object-cover"
+            />
+          ) : (
+            <div
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border bg-gradient-to-br from-primary/15 to-primary/5 text-sm font-semibold text-primary"
+              aria-hidden="true"
             >
-              {team.name}
-            </Link>
-            {isArchived && (
-              <Badge variant="outline" className="text-xs">
-                Archived
-              </Badge>
-            )}
-          </div>
-          <p className="truncate text-xs text-muted-foreground">/{team.slug}</p>
-        </div>
-        {canManage && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 opacity-70 group-hover:opacity-100"
-                aria-label="Team actions"
+              {initials || "?"}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <Link
+                to="/teams/$teamId"
+                params={{ teamId: team.id }}
+                className="truncate rounded text-base font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isArchived ? (
-                <DropdownMenuItem onClick={onRestore}>
-                  <ArchiveRestore className="mr-2 h-4 w-4" /> Restore
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={onArchive}>
-                  <Archive className="mr-2 h-4 w-4" /> Archive
-                </DropdownMenuItem>
+                {team.name}
+              </Link>
+              {isArchived && (
+                <Badge variant="outline" className="shrink-0 text-[10px]">
+                  Archived
+                </Badge>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={onDelete}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-
-      <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
-        {team.description || "No description provided."}
-      </p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1">
-          <Users className="h-3.5 w-3.5" /> {team.member_count} members
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1">
-          <FolderKanban className="h-3.5 w-3.5" /> {team.project_count} projects
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {new Date(team.created_at).toLocaleDateString()}
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between border-t pt-3">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Lead:</span>
-          <span className="font-medium">
-            {team.owner?.full_name ?? "Unassigned"}
-          </span>
+            </div>
+            <p className="truncate font-mono text-xs text-muted-foreground">
+              /{team.slug}
+            </p>
+          </div>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 shrink-0 text-muted-foreground"
+                  aria-label={`Actions for ${team.name}`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isArchived ? (
+                  <DropdownMenuItem onClick={onRestore}>
+                    <ArchiveRestore className="mr-2 h-4 w-4" /> Restore
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={onArchive}>
+                    <Archive className="mr-2 h-4 w-4" /> Archive
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        <Button asChild size="sm" variant="outline">
-          <Link to="/teams/$teamId" params={{ teamId: team.id }}>
-            Open
-          </Link>
-        </Button>
+
+        <p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
+          {team.description || "No description provided."}
+        </p>
+
+        <dl className="grid grid-cols-3 gap-2 text-xs">
+          <Stat
+            icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Members"
+            value={team.member_count}
+          />
+          <Stat
+            icon={<FolderKanban className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Projects"
+            value={team.project_count}
+          />
+          <Stat
+            icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Created"
+            value={new Date(team.created_at).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          />
+        </dl>
+
+        <div className="mt-auto flex items-center justify-between gap-2 border-t pt-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <Avatar className="h-7 w-7 shrink-0">
+              {team.owner?.avatar_url && (
+                <AvatarImage src={team.owner.avatar_url} alt="" />
+              )}
+              <AvatarFallback className="text-[10px]">
+                {leadInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 leading-tight">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Lead
+              </p>
+              <p className="truncate text-xs font-medium">
+                {team.owner?.full_name ?? "Unassigned"}
+              </p>
+            </div>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-1"
+          >
+            <Link to="/teams/$teamId" params={{ teamId: team.id }}>
+              Open
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </Button>
+        </div>
       </div>
+    </article>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border bg-muted/30 px-2 py-1.5">
+      <dt className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {icon}
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="mt-0.5 truncate text-sm font-semibold text-foreground">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -551,9 +730,11 @@ function CreateTeamDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const selectedCount = Object.values(initialMembers).filter(Boolean).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create team</DialogTitle>
           <DialogDescription>
@@ -564,41 +745,49 @@ function CreateTeamDialog({
           onSubmit={form.handleSubmit((v) => create.mutate(v))}
           className="space-y-4"
         >
-          <div>
-            <Label htmlFor="name">Name</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="team-name">Name</Label>
             <Input
-              id="name"
+              id="team-name"
               placeholder="Platform Engineering"
+              autoComplete="off"
               {...form.register("name")}
+              aria-invalid={!!form.formState.errors.name}
             />
             {form.formState.errors.name && (
-              <p className="mt-1 text-xs text-destructive">
+              <p className="text-xs text-destructive" role="alert">
                 {form.formState.errors.name.message}
               </p>
             )}
           </div>
-          <div>
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" placeholder="platform-eng" {...form.register("slug")} />
+          <div className="space-y-1.5">
+            <Label htmlFor="team-slug">Slug</Label>
+            <Input
+              id="team-slug"
+              placeholder="platform-eng"
+              autoComplete="off"
+              {...form.register("slug")}
+              aria-invalid={!!form.formState.errors.slug}
+            />
             {form.formState.errors.slug && (
-              <p className="mt-1 text-xs text-destructive">
+              <p className="text-xs text-destructive" role="alert">
                 {form.formState.errors.slug.message}
               </p>
             )}
           </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="team-description">Description</Label>
             <Textarea
-              id="description"
+              id="team-description"
               rows={2}
               placeholder="What does this team focus on?"
               {...form.register("description")}
             />
           </div>
-          <div>
-            <Label>Team lead</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="team-lead">Team lead</Label>
             <Select value={leadId} onValueChange={setLeadId}>
-              <SelectTrigger>
+              <SelectTrigger id="team-lead">
                 <SelectValue placeholder="You (default)" />
               </SelectTrigger>
               <SelectContent>
@@ -609,37 +798,56 @@ function CreateTeamDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               If empty, you become the lead. You can transfer this later.
             </p>
           </div>
-          <div>
-            <Label>Initial members</Label>
-            <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border p-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>Initial members</Label>
+              {selectedCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedCount} selected
+                </span>
+              )}
+            </div>
+            <div
+              className="max-h-40 space-y-0.5 overflow-y-auto rounded-md border p-1"
+              role="group"
+              aria-label="Initial members"
+            >
               {(orgMembers.data ?? []).length === 0 ? (
                 <p className="p-2 text-xs text-muted-foreground">
                   Loading members…
                 </p>
               ) : (
-                (orgMembers.data ?? []).map((m) => (
-                  <label
-                    key={m.user_id}
-                    className="flex cursor-pointer items-center gap-2 rounded p-1 text-sm hover:bg-muted"
-                  >
-                    <Checkbox
-                      checked={!!initialMembers[m.user_id]}
-                      onCheckedChange={(v) =>
-                        setInitialMembers((s) => ({ ...s, [m.user_id]: !!v }))
-                      }
-                    />
-                    <span className="flex-1">{m.full_name}</span>
-                    <span className="text-xs text-muted-foreground">{m.role}</span>
-                  </label>
-                ))
+                (orgMembers.data ?? []).map((m) => {
+                  const checked = !!initialMembers[m.user_id];
+                  return (
+                    <label
+                      key={m.user_id}
+                      className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) =>
+                          setInitialMembers((s) => ({
+                            ...s,
+                            [m.user_id]: !!v,
+                          }))
+                        }
+                      />
+                      <span className="flex-1 truncate">{m.full_name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {m.role}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button
               type="button"
               variant="ghost"
