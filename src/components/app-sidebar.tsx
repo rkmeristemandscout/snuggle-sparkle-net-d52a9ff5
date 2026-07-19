@@ -13,6 +13,11 @@ import {
   Shield,
   CreditCard,
   UsersRound,
+  Activity,
+  FolderKanban,
+  ListChecks,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +34,13 @@ import {
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 
+type Item = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  show: boolean;
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -36,12 +48,29 @@ export function AppSidebar() {
   const { can, isSuperAdmin } = usePermissions();
   const { currentMembership } = useCurrentOrg();
 
-  const items = [
+  const overview: Item[] = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
-    { to: "/organizations", label: "Organizations", icon: Building2, show: true },
+    { to: "/activity", label: "Activity", icon: Activity, show: true },
+  ];
+
+  const workspace: Item[] = [
+    { to: "/members", label: "Members", icon: UsersRound, show: true },
     { to: "/teams", label: "Teams", icon: Users, show: can(["team.view", "team.create"]) },
     { to: "/departments", label: "Departments", icon: Boxes, show: can("department.view") },
-    { to: "/members", label: "Members", icon: UsersRound, show: true },
+  ];
+
+  const work: Item[] = [
+    { to: "/projects", label: "Projects", icon: FolderKanban, show: true },
+    { to: "/tasks", label: "Tasks", icon: ListChecks, show: true },
+    { to: "/analytics", label: "Analytics", icon: BarChart3, show: true },
+  ];
+
+  const manage: Item[] = [
+    { to: "/settings", label: "Settings", icon: Settings, show: true },
+  ];
+
+  const other: Item[] = [
+    { to: "/organizations", label: "Organizations", icon: Building2, show: true },
     { to: "/invitations", label: "Invitations", icon: Mail, show: can("invitation.view") },
     {
       to: "/roles",
@@ -66,9 +95,33 @@ export function AppSidebar() {
     { to: "/admin", label: "Admin Console", icon: Shield, show: isSuperAdmin },
     { to: "/profile", label: "Profile", icon: UserCircle, show: true },
     { to: "/settings/email", label: "Email Settings", icon: Mail, show: true },
-  ].filter((i) => i.show);
+  ];
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
+
+  const renderGroup = (label: string, items: Item[]) => {
+    const visible = items.filter((i) => i.show);
+    if (!visible.length) return null;
+    return (
+      <SidebarGroup key={label}>
+        <SidebarGroupLabel>{label}</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {visible.map((item) => (
+              <SidebarMenuItem key={item.to}>
+                <SidebarMenuButton asChild isActive={isActive(item.to)} tooltip={item.label}>
+                  <Link to={item.to} className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -88,23 +141,11 @@ export function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={isActive(item.to)} tooltip={item.label}>
-                    <Link to={item.to} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {renderGroup("Overview", overview)}
+        {renderGroup("Workspace", workspace)}
+        {renderGroup("Work", work)}
+        {renderGroup("Manage", manage)}
+        {renderGroup("More", other)}
       </SidebarContent>
     </Sidebar>
   );
