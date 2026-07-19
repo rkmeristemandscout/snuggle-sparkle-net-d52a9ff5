@@ -733,21 +733,11 @@ function TeamDetail() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="hidden w-32 sm:block">
-                        <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-                          <div
-                            className="h-full bg-primary transition-all"
-                            style={{ width: `${Math.min(100, Math.max(0, p.progress ?? 0))}%` }}
-                          />
-                        </div>
-                        <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                          {p.progress ?? 0}%
-                        </p>
-                      </div>
                       <Badge variant="secondary" className="capitalize">
                         {p.status}
                       </Badge>
                     </div>
+
                   </li>
                 ))}
               </ul>
