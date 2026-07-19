@@ -21,6 +21,8 @@ const listSchema = z.object({
     .optional(),
 });
 
+type Json = string | number | boolean | null | { [k: string]: Json } | Json[];
+
 export type ActivityRow = {
   id: string;
   organization_id: string;
@@ -29,7 +31,7 @@ export type ActivityRow = {
   entity_type: string;
   entity_id: string | null;
   summary: string;
-  metadata: unknown;
+  metadata: Json;
   created_at: string;
 };
 
