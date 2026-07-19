@@ -15,7 +15,9 @@ import {
   deleteTeam,
   setTeamLead,
   bulkAddTeamMembers,
+  updateTeamAvatar,
 } from "@/lib/teams.functions";
+
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
