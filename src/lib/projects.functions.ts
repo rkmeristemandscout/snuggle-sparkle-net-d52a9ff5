@@ -295,8 +295,8 @@ export const duplicateProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: newId, error } = await context.supabase.rpc("duplicate_project", {
       _project_id: data.id,
-      _new_name: data.new_name ?? null,
-    });
+      _new_name: data.new_name,
+    } as any);
     if (error) throw new Error(error.message);
     return { id: newId as string };
   });
