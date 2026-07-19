@@ -145,6 +145,7 @@ function TeamsPage() {
 
   const sortConfig = useMemo(() => {
     if (sort === "az") return { sort: "name" as const, dir: "asc" as const };
+    if (sort === "za") return { sort: "name" as const, dir: "desc" as const };
     if (sort === "oldest")
       return { sort: "created_at" as const, dir: "asc" as const };
     return { sort: "created_at" as const, dir: "desc" as const };
@@ -152,7 +153,7 @@ function TeamsPage() {
 
   const teams = useQuery({
     enabled: !!org,
-    queryKey: ["teams", org?.id, status, debounced, sort],
+    queryKey: ["teams", org?.id, status, debounced, sort, departmentId, managerId],
     queryFn: async (): Promise<{ rows: EnrichedTeam[]; total: number | null }> => {
       const res = await listFn({
         data: {
@@ -161,7 +162,9 @@ function TeamsPage() {
           search: debounced || undefined,
           sort: sortConfig.sort,
           dir: sortConfig.dir,
-          limit: 60,
+          departmentId: departmentId || null,
+          managerId: managerId || null,
+          limit: 100,
         },
       });
       const rows = res.rows as TeamRow[];
@@ -171,7 +174,7 @@ function TeamsPage() {
         new Set(rows.map((t) => t.department_id).filter((v): v is string => !!v)),
       );
 
-      const [profilesRes, membersRes, projectsRes, deptsRes] = await Promise.all([
+      const [profilesRes, membersRes, projectsRes, deptsRes, tasksRes] = await Promise.all([
         ownerIds.length
           ? supabase
               .from("profiles")
@@ -184,14 +187,29 @@ function TeamsPage() {
         teamIds.length
           ? supabase
               .from("projects")
-              .select("team_id")
+              .select("id, team_id")
               .in("team_id", teamIds)
               .is("deleted_at", null)
-          : Promise.resolve({ data: [] as { team_id: string | null }[] }),
+          : Promise.resolve({ data: [] as { id: string; team_id: string | null }[] }),
         deptIds.length
           ? supabase.from("departments").select("id, name").in("id", deptIds)
           : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        Promise.resolve({ data: [] as { project_id: string | null; status: string }[] }),
       ]);
+
+      const projectIds = (projectsRes.data ?? [])
+        .map((p) => p.id)
+        .filter((v): v is string => !!v);
+      let taskRows: { project_id: string | null; status: string }[] = [];
+      if (projectIds.length) {
+        const { data: t } = await supabase
+          .from("tasks")
+          .select("project_id, status")
+          .in("project_id", projectIds)
+          .not("status", "in", "(done,cancelled)");
+        taskRows = t ?? [];
+      }
+      void tasksRes;
 
       const owners = Object.fromEntries(
         (profilesRes.data ?? []).map((p) => [p.id, p]),
@@ -204,8 +222,17 @@ function TeamsPage() {
         memberCounts[m.team_id] = (memberCounts[m.team_id] ?? 0) + 1;
       });
       const projectCounts: Record<string, number> = {};
+      const projectToTeam: Record<string, string> = {};
       (projectsRes.data ?? []).forEach((p) => {
-        if (p.team_id) projectCounts[p.team_id] = (projectCounts[p.team_id] ?? 0) + 1;
+        if (p.team_id) {
+          projectCounts[p.team_id] = (projectCounts[p.team_id] ?? 0) + 1;
+          if (p.id) projectToTeam[p.id] = p.team_id;
+        }
+      });
+      const taskCounts: Record<string, number> = {};
+      taskRows.forEach((t) => {
+        const teamId = t.project_id ? projectToTeam[t.project_id] : null;
+        if (teamId) taskCounts[teamId] = (taskCounts[teamId] ?? 0) + 1;
       });
 
       return {
@@ -215,9 +242,53 @@ function TeamsPage() {
           department: t.department_id ? depts[t.department_id] ?? null : null,
           member_count: memberCounts[t.id] ?? 0,
           project_count: projectCounts[t.id] ?? 0,
+          task_count: taskCounts[t.id] ?? 0,
         })),
         total: res.total,
       };
+    },
+  });
+
+  const statsFn = useServerFn(getTeamsDashboardStats);
+  const stats = useQuery({
+    enabled: !!org,
+    queryKey: ["teams-stats", org?.id],
+    queryFn: async () => statsFn({ data: { organizationId: org!.id } }),
+  });
+
+  const departmentsList = useQuery({
+    enabled: !!org,
+    queryKey: ["departments-for-teams-filter", org?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .eq("organization_id", org!.id)
+        .is("deleted_at", null)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const managersList = useQuery({
+    enabled: !!org,
+    queryKey: ["managers-for-teams-filter", org?.id],
+    queryFn: async () => {
+      const { data: memRows } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", org!.id);
+      const ids = Array.from(new Set((memRows ?? []).map((m) => m.user_id)));
+      if (!ids.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      return (profs ?? []).map((p) => ({
+        id: p.id,
+        name: p.full_name || p.id.slice(0, 8),
+      }));
     },
   });
 
