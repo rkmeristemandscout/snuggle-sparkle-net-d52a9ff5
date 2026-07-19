@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedActivityRouteImport } from './routes/_authenticated/activity'
 import { Route as AuthenticatedTeamsTeamIdRouteImport } from './routes/_authenticated/teams.$teamId'
 import { Route as AuthenticatedSettingsEmailRouteImport } from './routes/_authenticated/settings.email'
+import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedOrganizationsSlugRouteImport } from './routes/_authenticated/organizations.$slug'
 import { Route as AuthenticatedDepartmentsDepartmentIdRouteImport } from './routes/_authenticated/departments.$departmentId'
 import { Route as AuthenticatedBillingPlansRouteImport } from './routes/_authenticated/billing.plans'
@@ -184,6 +185,12 @@ const AuthenticatedSettingsEmailRoute =
     path: '/email',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedProjectsProjectIdRoute =
+  AuthenticatedProjectsProjectIdRouteImport.update({
+    id: '/$projectId',
+    path: '/$projectId',
+    getParentRoute: () => AuthenticatedProjectsRoute,
+  } as any)
 const AuthenticatedOrganizationsSlugRoute =
   AuthenticatedOrganizationsSlugRouteImport.update({
     id: '/$slug',
@@ -241,7 +248,7 @@ export interface FileRoutesByFullPath {
   '/members': typeof AuthenticatedMembersRoute
   '/organizations': typeof AuthenticatedOrganizationsRouteWithChildren
   '/profile': typeof AuthenticatedProfileRoute
-  '/projects': typeof AuthenticatedProjectsRoute
+  '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/roles': typeof AuthenticatedRolesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
@@ -276,7 +284,7 @@ export interface FileRoutesByTo {
   '/members': typeof AuthenticatedMembersRoute
   '/organizations': typeof AuthenticatedOrganizationsRouteWithChildren
   '/profile': typeof AuthenticatedProfileRoute
-  '/projects': typeof AuthenticatedProjectsRoute
+  '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/roles': typeof AuthenticatedRolesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
@@ -288,6 +296,7 @@ export interface FileRoutesByTo {
   '/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
@@ -313,7 +322,7 @@ export interface FileRoutesById {
   '/_authenticated/members': typeof AuthenticatedMembersRoute
   '/_authenticated/organizations': typeof AuthenticatedOrganizationsRouteWithChildren
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/projects': typeof AuthenticatedProjectsRoute
+  '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/_authenticated/roles': typeof AuthenticatedRolesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -325,6 +334,7 @@ export interface FileRoutesById {
   '/_authenticated/billing/plans': typeof AuthenticatedBillingPlansRoute
   '/_authenticated/departments/$departmentId': typeof AuthenticatedDepartmentsDepartmentIdRoute
   '/_authenticated/organizations/$slug': typeof AuthenticatedOrganizationsSlugRouteWithChildren
+  '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/email': typeof AuthenticatedSettingsEmailRoute
   '/_authenticated/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/_authenticated/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/billing/plans'
     | '/departments/$departmentId'
     | '/organizations/$slug'
+    | '/projects/$projectId'
     | '/settings/email'
     | '/teams/$teamId'
     | '/organizations/$slug/members'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/billing/plans'
     | '/departments/$departmentId'
     | '/organizations/$slug'
+    | '/projects/$projectId'
     | '/settings/email'
     | '/teams/$teamId'
     | '/organizations/$slug/members'
@@ -433,6 +445,7 @@ export interface FileRouteTypes {
     | '/_authenticated/billing/plans'
     | '/_authenticated/departments/$departmentId'
     | '/_authenticated/organizations/$slug'
+    | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/email'
     | '/_authenticated/teams/$teamId'
     | '/_authenticated/organizations/$slug/members'
@@ -641,6 +654,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsEmailRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/projects/$projectId': {
+      id: '/_authenticated/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
+      parentRoute: typeof AuthenticatedProjectsRoute
+    }
     '/_authenticated/organizations/$slug': {
       id: '/_authenticated/organizations/$slug'
       path: '/$slug'
@@ -752,6 +772,19 @@ const AuthenticatedOrganizationsRouteWithChildren =
     AuthenticatedOrganizationsRouteChildren,
   )
 
+interface AuthenticatedProjectsRouteChildren {
+  AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
+}
+
+const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
+  AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
+}
+
+const AuthenticatedProjectsRouteWithChildren =
+  AuthenticatedProjectsRoute._addFileChildren(
+    AuthenticatedProjectsRouteChildren,
+  )
+
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsEmailRoute: typeof AuthenticatedSettingsEmailRoute
 }
@@ -790,7 +823,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMembersRoute: typeof AuthenticatedMembersRoute
   AuthenticatedOrganizationsRoute: typeof AuthenticatedOrganizationsRouteWithChildren
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
+  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
   AuthenticatedRolesRoute: typeof AuthenticatedRolesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
@@ -811,7 +844,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMembersRoute: AuthenticatedMembersRoute,
   AuthenticatedOrganizationsRoute: AuthenticatedOrganizationsRouteWithChildren,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
   AuthenticatedRolesRoute: AuthenticatedRolesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
