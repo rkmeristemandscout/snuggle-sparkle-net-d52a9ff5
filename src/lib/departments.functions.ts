@@ -296,7 +296,7 @@ export const getDepartmentMembers = createServerFn({ method: "GET" })
 
     const { data: members, error } = await context.supabase
       .from("organization_members")
-      .select("user_id, role, joined_at")
+      .select("user_id, role, created_at")
       .eq("organization_id", dept!.organization_id)
       .eq("department_id", data.departmentId);
     if (error) fail(error.message);
@@ -305,7 +305,7 @@ export const getDepartmentMembers = createServerFn({ method: "GET" })
     if (ids.length) {
       const { data: profs } = await context.supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name")
         .in("id", ids);
       profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
     }
