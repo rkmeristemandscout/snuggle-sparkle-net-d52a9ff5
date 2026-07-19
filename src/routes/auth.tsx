@@ -189,6 +189,8 @@ function SignUpForm() {
     resolver: zodResolver(signUpSchema),
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const [sent, setSent] = useState(false);
 
   async function onSubmit(values: SignUpValues) {
