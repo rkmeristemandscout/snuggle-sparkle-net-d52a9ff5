@@ -774,53 +774,144 @@ export type Database = {
         }
         Relationships: []
       }
+      project_members: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          project_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          project_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
+          archived_at: string | null
+          budget: number | null
+          client: string | null
+          code: string | null
           color: string | null
+          cover_image_url: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          department_id: string | null
           description: string | null
           due_date: string | null
           id: string
+          logo_url: string | null
+          manager_id: string | null
           name: string
           organization_id: string
           owner_id: string | null
+          priority: string
+          progress: number
           slug: string
+          start_date: string | null
           status: string
+          tags: string[]
           team_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          budget?: number | null
+          client?: string | null
+          code?: string | null
           color?: string | null
+          cover_image_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          logo_url?: string | null
+          manager_id?: string | null
           name: string
           organization_id: string
           owner_id?: string | null
+          priority?: string
+          progress?: number
           slug: string
+          start_date?: string | null
           status?: string
+          tags?: string[]
           team_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          budget?: number | null
+          client?: string | null
+          code?: string | null
           color?: string | null
+          cover_image_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          logo_url?: string | null
+          manager_id?: string | null
           name?: string
           organization_id?: string
           owner_id?: string | null
+          priority?: string
+          progress?: number
           slug?: string
+          start_date?: string | null
           status?: string
+          tags?: string[]
           team_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_organization_id_fkey"
             columns: ["organization_id"]
@@ -1365,6 +1456,10 @@ export type Database = {
       }
       current_user_email: { Args: never; Returns: string }
       delete_notification: { Args: { _id: string }; Returns: undefined }
+      duplicate_project: {
+        Args: { _new_name?: string; _project_id: string }
+        Returns: string
+      }
       expire_invitation: {
         Args: { _invitation_id: string }
         Returns: undefined
