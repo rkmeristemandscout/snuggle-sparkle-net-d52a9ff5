@@ -990,6 +990,8 @@ function CreateTeamDialog({
       setDepartmentId("");
       setInitialMembers({});
       setAvatarFile(null);
+      setColor("#3b82f6");
+      setTeamStatus("active");
     }
   }, [open, form]);
 
@@ -1000,6 +1002,8 @@ function CreateTeamDialog({
           organizationId,
           ...v,
           departmentId: departmentId || null,
+          color,
+          status: teamStatus,
         },
       });
       const memberIds = Object.keys(initialMembers).filter((k) => initialMembers[k]);
