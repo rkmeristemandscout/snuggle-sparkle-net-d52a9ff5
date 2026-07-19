@@ -155,8 +155,11 @@ function TeamsPage() {
       const rows = res.rows as TeamRow[];
       const ownerIds = Array.from(new Set(rows.map((t) => t.owner_id)));
       const teamIds = rows.map((t) => t.id);
+      const deptIds = Array.from(
+        new Set(rows.map((t) => t.department_id).filter((v): v is string => !!v)),
+      );
 
-      const [profilesRes, membersRes, projectsRes] = await Promise.all([
+      const [profilesRes, membersRes, projectsRes, deptsRes] = await Promise.all([
         ownerIds.length
           ? supabase
               .from("profiles")
@@ -173,10 +176,16 @@ function TeamsPage() {
               .in("team_id", teamIds)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] as { team_id: string | null }[] }),
+        deptIds.length
+          ? supabase.from("departments").select("id, name").in("id", deptIds)
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
       ]);
 
       const owners = Object.fromEntries(
         (profilesRes.data ?? []).map((p) => [p.id, p]),
+      );
+      const depts = Object.fromEntries(
+        (deptsRes.data ?? []).map((d) => [d.id, d]),
       );
       const memberCounts: Record<string, number> = {};
       (membersRes.data ?? []).forEach((m) => {
@@ -191,6 +200,7 @@ function TeamsPage() {
         rows: rows.map((t) => ({
           ...t,
           owner: owners[t.owner_id] ?? null,
+          department: t.department_id ? depts[t.department_id] ?? null : null,
           member_count: memberCounts[t.id] ?? 0,
           project_count: projectCounts[t.id] ?? 0,
         })),
@@ -198,6 +208,7 @@ function TeamsPage() {
       };
     },
   });
+
 
   // Realtime
   useEffect(() => {
