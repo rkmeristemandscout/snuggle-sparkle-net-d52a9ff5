@@ -65,12 +65,30 @@ function TeamDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("teams")
-        .select("id, name, slug, description, owner_id, organization_id")
+        .select("*")
         .eq("id", teamId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as (typeof data & { avatar_url: string | null }) | null;
     },
+  });
+
+  const getStatsFn = useServerFn(getTeamStats);
+  const getActivityFn = useServerFn(getTeamActivity);
+  const bulkAddFn = useServerFn(bulkAddTeamMembers);
+  const bulkRemoveFn = useServerFn(bulkRemoveTeamMembers);
+  const updateAvatarFn = useServerFn(updateTeamAvatar);
+
+  const stats = useQuery({
+    enabled: !!team.data,
+    queryKey: ["team-stats", teamId],
+    queryFn: () => getStatsFn({ data: { teamId } }),
+  });
+
+  const activity = useQuery({
+    enabled: !!team.data,
+    queryKey: ["team-activity", teamId],
+    queryFn: () => getActivityFn({ data: { teamId, limit: 30 } }),
   });
 
   const inSameOrg = team.data?.organization_id === currentMembership?.organization.id;
