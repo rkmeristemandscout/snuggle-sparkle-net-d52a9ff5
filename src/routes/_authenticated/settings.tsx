@@ -1,11 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  component: SettingsPage,
+  component: SettingsLayout,
 });
 
-function SettingsPage() {
+function SettingsLayout() {
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const isIndex = pathname === "/settings" || pathname === "/settings/";
+
+  if (!isIndex) return <Outlet />;
+
   return (
     <div className="space-y-6">
       <div>
