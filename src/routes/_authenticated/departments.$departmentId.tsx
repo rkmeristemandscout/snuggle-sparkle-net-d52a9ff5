@@ -176,7 +176,8 @@ function DepartmentDetail() {
 
   const [parentId, setParentId] = useState<string>("");
   useEffect(() => {
-    if (dept.data) setParentId(dept.data.parent_id ?? "__none");
+    const p = (dept.data as { parent_id?: string | null } | undefined)?.parent_id;
+    if (dept.data) setParentId(p ?? "__none");
   }, [dept.data]);
 
   const saveParent = useMutation({
