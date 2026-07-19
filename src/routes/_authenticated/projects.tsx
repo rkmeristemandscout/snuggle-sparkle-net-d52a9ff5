@@ -397,6 +397,3 @@ function ProjectDialog({
     </DialogContent>
   );
 }
-
-// keep useMemo import used
-void useMemo;
