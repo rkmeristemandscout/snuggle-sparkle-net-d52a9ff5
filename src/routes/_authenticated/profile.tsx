@@ -304,6 +304,158 @@ function ProfilePage() {
           {saveProfile.isPending ? "Saving…" : "Save changes"}
         </Button>
       </form>
+
+      <form
+        onSubmit={additionalForm.handleSubmit((v) => saveAdditional.mutate(v))}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Additional info</h2>
+          <p className="text-sm text-muted-foreground">Optional contact details and bio.</p>
+        </div>
+        <div>
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" placeholder="+1 555 000 1234" {...additionalForm.register("phone")} />
+          {additionalForm.formState.errors.phone && (
+            <p className="mt-1 text-xs text-destructive">
+              {additionalForm.formState.errors.phone.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="bio">Bio</Label>
+          <Textarea
+            id="bio"
+            rows={3}
+            placeholder="A few words about you"
+            {...additionalForm.register("bio")}
+          />
+          {additionalForm.formState.errors.bio && (
+            <p className="mt-1 text-xs text-destructive">
+              {additionalForm.formState.errors.bio.message}
+            </p>
+          )}
+        </div>
+        <Button type="submit" disabled={saveAdditional.isPending}>
+          {saveAdditional.isPending ? "Saving…" : "Save details"}
+        </Button>
+      </form>
+
+      <form
+        onSubmit={passwordForm.handleSubmit((v) => changePassword.mutate(v))}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Change password</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose a strong password with at least 8 characters, a letter, and a number.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="new-password">New password</Label>
+          <Input id="new-password" type="password" {...passwordForm.register("password")} />
+          {passwordForm.formState.errors.password && (
+            <p className="mt-1 text-xs text-destructive">
+              {passwordForm.formState.errors.password.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="confirm-password">Confirm new password</Label>
+          <Input id="confirm-password" type="password" {...passwordForm.register("confirm")} />
+          {passwordForm.formState.errors.confirm && (
+            <p className="mt-1 text-xs text-destructive">
+              {passwordForm.formState.errors.confirm.message}
+            </p>
+          )}
+        </div>
+        <Button type="submit" disabled={changePassword.isPending}>
+          {changePassword.isPending ? "Updating…" : "Update password"}
+        </Button>
+      </form>
+
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Two-factor authentication</h2>
+            <p className="text-sm text-muted-foreground">
+              Add a second step to sign-in using an authenticator app (TOTP).
+            </p>
+          </div>
+          <Switch
+            checked={!!verifiedTotp}
+            disabled={
+              factors.isLoading ||
+              startEnroll.isPending ||
+              disable2fa.isPending ||
+              !!enrollment
+            }
+            onCheckedChange={(checked) => {
+              if (checked && !verifiedTotp) startEnroll.mutate();
+              else if (!checked && verifiedTotp) disable2fa.mutate(verifiedTotp.id);
+            }}
+          />
+        </div>
+
+        {verifiedTotp && !enrollment && (
+          <p className="text-sm text-emerald-600 dark:text-emerald-400">
+            2FA is enabled on this account.
+          </p>
+        )}
+
+        {enrollment && (
+          <div className="space-y-3 rounded-lg border bg-background p-4">
+            <p className="text-sm text-muted-foreground">
+              Scan the QR code with your authenticator app, then enter the 6-digit code to confirm.
+            </p>
+            <div className="flex items-start gap-4">
+              {/* Supabase returns an SVG data URL */}
+              <img
+                src={enrollment.qr}
+                alt="TOTP QR code"
+                className="h-40 w-40 rounded border bg-white p-2"
+              />
+              <div className="text-xs">
+                <p className="text-muted-foreground">Or enter this secret manually:</p>
+                <code className="mt-1 block break-all rounded bg-muted p-2 font-mono">
+                  {enrollment.secret}
+                </code>
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="totp">Verification code</Label>
+                <Input
+                  id="totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => verifyEnroll.mutate()}
+                disabled={verifyCode.length !== 6 || verifyEnroll.isPending}
+              >
+                {verifyEnroll.isPending ? "Verifying…" : "Verify"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (enrollment) disable2fa.mutate(enrollment.factorId);
+                  setEnrollment(null);
+                  setVerifyCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
