@@ -948,6 +948,29 @@ function CreateTeamDialog({
             </p>
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="team-department">Department</Label>
+            <Select
+              value={departmentId || "__none__"}
+              onValueChange={(v) => setDepartmentId(v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger id="team-department">
+                <SelectValue placeholder="No department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No department</SelectItem>
+                {(departments.data ?? []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Optionally group this team under a department (e.g. Engineering, Sales).
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Initial members</Label>
               {selectedCount > 0 && (
