@@ -346,3 +346,61 @@ export const getDepartmentMembers = createServerFn({ method: "GET" })
     }
     return (members ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
   });
+
+export const getDepartmentTree = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase.rpc("get_department_tree", {
+      _org: data.organizationId,
+    });
+    if (error) fail(error.message);
+    return (rows ?? []) as Array<{
+      id: string;
+      parent_id: string | null;
+      name: string;
+      slug: string;
+      manager_id: string | null;
+      depth: number;
+      path: string[];
+    }>;
+  });
+
+export const getDepartmentRollup = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase.rpc("get_department_rollup", {
+      _dept: data.departmentId,
+    });
+    if (error) fail(error.message);
+    return row as {
+      direct_members: number;
+      total_members: number;
+      sub_department_count: number;
+      projects: number;
+      tasks: number;
+      open_tasks: number;
+    };
+  });
+
+export const transferDepartmentMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { fromDepartmentId: string; toDepartmentId: string | null; userIds: string[] }) =>
+    z
+      .object({
+        fromDepartmentId: uuid,
+        toDepartmentId: uuid.nullable(),
+        userIds: z.array(uuid).min(1).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: n, error } = await context.supabase.rpc("transfer_department_members", {
+      _from: data.fromDepartmentId,
+      _to: data.toDepartmentId as string,
+      _users: data.userIds,
+    });
+    if (error) fail(error.message);
+    return { transferred: n as number };
+  });
