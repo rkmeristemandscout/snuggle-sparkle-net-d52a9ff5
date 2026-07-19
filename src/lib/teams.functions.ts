@@ -101,12 +101,37 @@ export const getTeamsDashboardStats = createServerFn({ method: "GET" })
   });
 
 
+const colorSchema = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value like #4F46E5")
+  .optional()
+  .or(z.literal(""));
+const iconSchema = z.string().trim().max(40).optional().or(z.literal(""));
+const teamStatusSchema = z.enum(["active", "archived", "on_hold"]).optional();
+
 export const createTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(
-    (d: { organizationId: string; departmentId?: string | null } & z.infer<typeof teamSchema>) =>
+    (d: {
+      organizationId: string;
+      departmentId?: string | null;
+      managerId?: string | null;
+      color?: string;
+      icon?: string;
+      status?: "active" | "archived" | "on_hold";
+      initialMemberIds?: string[];
+    } & z.infer<typeof teamSchema>) =>
       z
-        .object({ organizationId: uuid, departmentId: uuid.nullable().optional() })
+        .object({
+          organizationId: uuid,
+          departmentId: uuid.nullable().optional(),
+          managerId: uuid.nullable().optional(),
+          color: colorSchema,
+          icon: iconSchema,
+          status: teamStatusSchema,
+          initialMemberIds: z.array(uuid).max(200).optional(),
+        })
         .merge(teamSchema)
         .parse(d),
   )
@@ -119,7 +144,7 @@ export const createTeam = createServerFn({ method: "POST" })
       .or(`slug.eq.${data.slug},name.ilike.${data.name}`)
       .limit(1)
       .maybeSingle();
-    if (dup) fail("A team with this name or slug already exists");
+    if (dup) fail("A team with this name or code already exists");
 
     if (data.departmentId) {
       const { data: dep } = await context.supabase
@@ -131,6 +156,16 @@ export const createTeam = createServerFn({ method: "POST" })
         fail("Department must belong to the same organization");
     }
 
+    if (data.managerId) {
+      const { data: mgr } = await context.supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", data.organizationId)
+        .eq("user_id", data.managerId)
+        .maybeSingle();
+      if (!mgr) fail("Manager must be a member of the organization");
+    }
+
     const { data: row, error } = await context.supabase
       .from("teams")
       .insert({
@@ -138,13 +173,24 @@ export const createTeam = createServerFn({ method: "POST" })
         name: data.name,
         slug: data.slug,
         description: data.description || null,
-        owner_id: context.userId,
+        owner_id: data.managerId ?? context.userId,
         created_by: context.userId,
         department_id: data.departmentId ?? null,
+        color: data.color || null,
+        icon: data.icon || null,
+        status: data.status ?? "active",
+        archived_at: data.status === "archived" ? new Date().toISOString() : null,
       })
-      .select("id, name, slug, description, owner_id, department_id")
+      .select("id, name, slug, description, owner_id, department_id, color, icon, status")
       .single();
     if (error) fail(error.message);
+
+    if (data.initialMemberIds?.length) {
+      await context.supabase.rpc("bulk_add_team_members", {
+        _team: row!.id,
+        _users: data.initialMemberIds,
+      });
+    }
     return row!;
   });
 
@@ -155,6 +201,9 @@ export const updateTeam = createServerFn({ method: "POST" })
     (d: { teamId: string } & Partial<z.infer<typeof teamSchema>> & {
       ownerId?: string;
       departmentId?: string | null;
+      color?: string;
+      icon?: string;
+      status?: "active" | "archived" | "on_hold";
     }) =>
       z
         .object({
@@ -164,6 +213,9 @@ export const updateTeam = createServerFn({ method: "POST" })
           description: z.string().trim().max(280).optional().or(z.literal("")),
           ownerId: uuid.optional(),
           departmentId: uuid.nullable().optional(),
+          color: colorSchema,
+          icon: iconSchema,
+          status: teamStatusSchema,
         })
         .parse(d),
   )
@@ -188,7 +240,7 @@ export const updateTeam = createServerFn({ method: "POST" })
         .or(filters.join(","))
         .limit(1)
         .maybeSingle();
-      if (dup) fail("Another team already uses this name or slug");
+      if (dup) fail("Another team already uses this name or code");
     }
 
     if (data.departmentId) {
@@ -201,23 +253,60 @@ export const updateTeam = createServerFn({ method: "POST" })
         fail("Department must belong to the same organization");
     }
 
-    const patch: {
-      name?: string;
-      slug?: string;
-      description?: string | null;
-      owner_id?: string;
-      department_id?: string | null;
-    } = {};
+    const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.slug !== undefined) patch.slug = data.slug;
     if (data.description !== undefined) patch.description = data.description || null;
     if (data.ownerId !== undefined) patch.owner_id = data.ownerId;
     if (data.departmentId !== undefined) patch.department_id = data.departmentId;
+    if (data.color !== undefined) patch.color = data.color || null;
+    if (data.icon !== undefined) patch.icon = data.icon || null;
+    if (data.status !== undefined) {
+      patch.status = data.status;
+      if (data.status === "archived") patch.archived_at = new Date().toISOString();
+      else if (data.status === "active") patch.archived_at = null;
+    }
     const { data: row, error } = await context.supabase
       .from("teams")
       .update(patch)
       .eq("id", data.teamId)
-      .select("id, name, slug, description, owner_id, department_id")
+      .select("id, name, slug, description, owner_id, department_id, color, icon, status")
+      .single();
+    if (error) fail(error.message);
+    return row!;
+  });
+
+export const duplicateTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { teamId: string }) => z.object({ teamId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: src, error: srcErr } = await context.supabase
+      .from("teams")
+      .select("organization_id, name, slug, description, department_id, color, icon, owner_id")
+      .eq("id", data.teamId)
+      .maybeSingle();
+    if (srcErr) fail(srcErr.message);
+    if (!src) fail("Team not found");
+
+    const suffix = Math.random().toString(36).slice(2, 6);
+    const newName = `${src!.name} (copy)`;
+    const newSlug = `${src!.slug}-copy-${suffix}`.slice(0, 60);
+
+    const { data: row, error } = await context.supabase
+      .from("teams")
+      .insert({
+        organization_id: src!.organization_id,
+        name: newName,
+        slug: newSlug,
+        description: src!.description,
+        department_id: src!.department_id,
+        color: src!.color,
+        icon: src!.icon,
+        owner_id: context.userId,
+        created_by: context.userId,
+        status: "active",
+      })
+      .select("id, name, slug")
       .single();
     if (error) fail(error.message);
     return row!;
