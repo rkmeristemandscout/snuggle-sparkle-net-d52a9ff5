@@ -1204,6 +1204,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_invitations: { Args: never; Returns: number }
+      cleanup_old_activity_logs: { Args: { _days?: number }; Returns: number }
       cleanup_old_audit_logs: { Args: { _days?: number }; Returns: number }
       cleanup_old_error_logs: { Args: { _days?: number }; Returns: number }
       cleanup_old_notifications: { Args: { _days?: number }; Returns: number }
@@ -1325,6 +1326,18 @@ export type Database = {
           user_id: string
         }[]
       }
+      log_activity_safe: {
+        Args: {
+          _action: string
+          _actor: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _org: string
+          _summary: string
+        }
+        Returns: undefined
+      }
       log_auth_event: {
         Args: { _action: string; _org?: string }
         Returns: undefined
@@ -1382,6 +1395,8 @@ export type Database = {
         Returns: undefined
       }
       shares_org_with: { Args: { _other: string }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       team_org: { Args: { _team: string }; Returns: string }
       write_audit_log: {
         Args: {
