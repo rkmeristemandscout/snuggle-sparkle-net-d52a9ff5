@@ -158,6 +158,8 @@ function ProfilePage() {
     resolver: zodResolver(passwordFormSchema),
     defaultValues: { password: "", confirm: "" },
   });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const changePassword = useMutation({
     mutationFn: async (v: PasswordFormValues) => {
       const { error } = await supabase.auth.updateUser({ password: v.password });
