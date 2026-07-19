@@ -1077,6 +1077,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          department_id: string | null
           description: string | null
           id: string
           name: string
@@ -1091,6 +1092,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           id?: string
           name: string
@@ -1105,6 +1107,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           id?: string
           name?: string
@@ -1114,6 +1117,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "teams_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "teams_organization_id_fkey"
             columns: ["organization_id"]
