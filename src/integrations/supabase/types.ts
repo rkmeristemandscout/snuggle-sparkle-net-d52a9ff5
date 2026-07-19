@@ -176,44 +176,71 @@ export type Database = {
       departments: {
         Row: {
           archived_at: string | null
+          budget: number | null
+          budget_currency: string | null
+          code: string | null
+          color: string | null
+          cost_center: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
           description: string | null
+          headcount_limit: number | null
           id: string
+          location: string | null
           manager_id: string | null
           name: string
           organization_id: string
           parent_id: string | null
           slug: string
+          status: string
+          timezone: string | null
           updated_at: string
         }
         Insert: {
           archived_at?: string | null
+          budget?: number | null
+          budget_currency?: string | null
+          code?: string | null
+          color?: string | null
+          cost_center?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           description?: string | null
+          headcount_limit?: number | null
           id?: string
+          location?: string | null
           manager_id?: string | null
           name: string
           organization_id: string
           parent_id?: string | null
           slug: string
+          status?: string
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
           archived_at?: string | null
+          budget?: number | null
+          budget_currency?: string | null
+          code?: string | null
+          color?: string | null
+          cost_center?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           description?: string | null
+          headcount_limit?: number | null
           id?: string
+          location?: string | null
           manager_id?: string | null
           name?: string
           organization_id?: string
           parent_id?: string | null
           slug?: string
+          status?: string
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1324,7 +1351,20 @@ export type Database = {
         Returns: undefined
       }
       get_analytics_snapshot: { Args: { _org: string }; Returns: Json }
+      get_department_rollup: { Args: { _dept: string }; Returns: Json }
       get_department_stats: { Args: { _dept: string }; Returns: Json }
+      get_department_tree: {
+        Args: { _org: string }
+        Returns: {
+          depth: number
+          id: string
+          manager_id: string
+          name: string
+          parent_id: string
+          path: string[]
+          slug: string
+        }[]
+      }
       get_team_stats: { Args: { _team: string }; Returns: Json }
       get_user_permissions: {
         Args: { _org: string }
@@ -1460,6 +1500,10 @@ export type Database = {
       soft_delete_department: { Args: { _dept: string }; Returns: undefined }
       soft_delete_team: { Args: { _team: string }; Returns: undefined }
       team_org: { Args: { _team: string }; Returns: string }
+      transfer_department_members: {
+        Args: { _from: string; _to: string; _users: string[] }
+        Returns: number
+      }
       write_audit_log: {
         Args: {
           _action: string
