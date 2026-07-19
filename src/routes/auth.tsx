@@ -133,6 +133,8 @@ function SignInForm() {
     resolver: zodResolver(signInSchema),
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
 
   async function onSubmit(values: SignInValues) {
     setLoading(true);
