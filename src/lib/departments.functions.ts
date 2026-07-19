@@ -219,3 +219,95 @@ export const getDepartment = createServerFn({ method: "GET" })
     if (!row) fail("Department not found");
     return row!;
   });
+
+export const getDepartmentStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase.rpc("get_department_stats", {
+      _dept: data.departmentId,
+    });
+    if (error) fail(error.message);
+    return row as {
+      member_count: number;
+      child_count: number;
+      created_at: string;
+      manager_id: string | null;
+    } | null;
+  });
+
+export const bulkAssignDepartmentMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string; userIds: string[] }) =>
+    z.object({ departmentId: uuid, userIds: z.array(uuid).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: assigned, error } = await context.supabase.rpc(
+      "bulk_assign_department_members",
+      { _dept: data.departmentId, _users: data.userIds },
+    );
+    if (error) fail(error.message);
+    return { assigned: assigned as number };
+  });
+
+export const setDepartmentParent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string; parentId: string | null }) =>
+    z.object({ departmentId: uuid, parentId: uuid.nullable() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_department_parent", {
+      _dept: data.departmentId,
+      _parent: data.parentId as string,
+    });
+    if (error) fail(error.message);
+    return { ok: true };
+  });
+
+export const getDepartmentActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string; limit?: number }) =>
+    z
+      .object({ departmentId: uuid, limit: z.number().int().min(1).max(100).default(30) })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("activity_logs")
+      .select("id, action, summary, metadata, actor_id, created_at")
+      .eq("entity_type", "department")
+      .eq("entity_id", data.departmentId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (error) fail(error.message);
+    return rows ?? [];
+  });
+
+export const getDepartmentMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: dept } = await context.supabase
+      .from("departments")
+      .select("id, organization_id")
+      .eq("id", data.departmentId)
+      .maybeSingle();
+    if (!dept) fail("Department not found");
+
+    const { data: members, error } = await context.supabase
+      .from("organization_members")
+      .select("user_id, role, joined_at")
+      .eq("organization_id", dept!.organization_id)
+      .eq("department_id", data.departmentId);
+    if (error) fail(error.message);
+    const ids = (members ?? []).map((m) => m.user_id);
+    let profiles: Record<string, { full_name: string | null; email: string | null }> = {};
+    if (ids.length) {
+      const { data: profs } = await context.supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      profiles = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
+    }
+    return (members ?? []).map((m) => ({ ...m, profile: profiles[m.user_id] ?? null }));
+  });
