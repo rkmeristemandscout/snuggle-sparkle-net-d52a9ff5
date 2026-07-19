@@ -8,6 +8,7 @@ import { resetSchema, type ResetValues } from "@/lib/auth-schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth/reset-password")({
   component: ResetPage,
