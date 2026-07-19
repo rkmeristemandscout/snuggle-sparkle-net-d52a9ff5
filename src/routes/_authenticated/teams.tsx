@@ -544,9 +544,21 @@ function TeamCard({
                 </Badge>
               )}
             </div>
-            <p className="truncate font-mono text-xs text-muted-foreground">
-              /{team.slug}
-            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                /{team.slug}
+              </span>
+              {team.department && (
+                <Badge
+                  variant="secondary"
+                  className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium"
+                >
+                  <Building2 className="h-3 w-3" aria-hidden="true" />
+                  {team.department.name}
+                </Badge>
+              )}
+            </div>
+
           </div>
           {canManage && (
             <DropdownMenu>
