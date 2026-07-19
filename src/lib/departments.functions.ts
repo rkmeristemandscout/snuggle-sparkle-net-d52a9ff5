@@ -301,7 +301,7 @@ export const getDepartmentMembers = createServerFn({ method: "GET" })
       .eq("department_id", data.departmentId);
     if (error) fail(error.message);
     const ids = (members ?? []).map((m) => m.user_id);
-    let profiles: Record<string, { full_name: string | null; email: string | null }> = {};
+    let profiles: Record<string, { full_name: string | null }> = {};
     if (ids.length) {
       const { data: profs } = await context.supabase
         .from("profiles")
