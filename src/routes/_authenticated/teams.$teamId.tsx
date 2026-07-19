@@ -581,25 +581,8 @@ function TeamDetail() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {canManage && !isTeamOwner ? (
-                            <Select
-                              value={m.role}
-                              onValueChange={(role) =>
-                                changeRole.mutate({ id: m.id, role })
-                              }
-                            >
-                              <SelectTrigger className="h-8 w-[120px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="member">Member</SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge variant="secondary">{m.role}</Badge>
-                          )}
+                          <Badge variant="secondary">{m.role}</Badge>
+
                           {canManage && !isTeamOwner && (
                             <Button
                               size="icon"
