@@ -234,6 +234,77 @@ function TeamDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Bulk selection / actions
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const bulkAdd = useMutation({
+    mutationFn: (userIds: string[]) => bulkAddFn({ data: { teamId, userIds } }),
+    onSuccess: (r) => {
+      toast.success(`Added ${r.added} member(s)`);
+      setSelected({});
+      qc.invalidateQueries({ queryKey: ["team-members", teamId] });
+      qc.invalidateQueries({ queryKey: ["team-stats", teamId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const bulkRemove = useMutation({
+    mutationFn: (userIds: string[]) => bulkRemoveFn({ data: { teamId, userIds } }),
+    onSuccess: (r) => {
+      toast.success(`Removed ${r.removed} member(s)`);
+      setSelected({});
+      qc.invalidateQueries({ queryKey: ["team-members", teamId] });
+      qc.invalidateQueries({ queryKey: ["team-stats", teamId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Avatar upload
+  const [uploading, setUploading] = useState(false);
+  const uploadAvatar = async (file: File) => {
+    if (!team.data) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "png";
+      const path = `${team.data.organization_id}/${team.data.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("team-avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: signed } = await supabase.storage
+        .from("team-avatars")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      const url = signed?.signedUrl ?? null;
+      await updateAvatarFn({ data: { teamId, avatarUrl: url } });
+      toast.success("Avatar updated");
+      qc.invalidateQueries({ queryKey: ["team", teamId] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const exportCsv = () => {
+    const rows = (members.data ?? []).map((m) => ({
+      user_id: m.user_id,
+      full_name: m.profile?.full_name ?? "",
+      role: m.role,
+      joined_at: m.created_at,
+    }));
+    const cols = ["user_id", "full_name", "role", "joined_at"];
+    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const csv = [
+      cols.join(","),
+      ...rows.map((r) => cols.map((c) => esc(String(r[c as keyof typeof r] ?? ""))).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `team-${team.data?.slug ?? teamId}-members.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (team.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!team.data) {
     return (
@@ -248,6 +319,7 @@ function TeamDetail() {
 
   const memberIds = new Set(members.data?.map((m) => m.user_id) ?? []);
   const availableToAdd = (orgMembers.data ?? []).filter((m) => !memberIds.has(m.user_id));
+  const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
 
   return (
     <div className="space-y-6">
