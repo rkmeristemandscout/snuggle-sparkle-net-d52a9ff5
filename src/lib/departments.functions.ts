@@ -210,14 +210,12 @@ export const getDepartment = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("departments")
-      .select(
-        "id, organization_id, name, slug, description, manager_id, parent_id, archived_at, deleted_at, created_at, updated_at",
-      )
+      .select("*")
       .eq("id", data.departmentId)
       .maybeSingle();
     if (error) fail(error.message);
     if (!row) fail("Department not found");
-    return row!;
+    return row as typeof row & { parent_id: string | null };
   });
 
 export const getDepartmentStats = createServerFn({ method: "GET" })
