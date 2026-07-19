@@ -536,7 +536,7 @@ function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  if (enrollment) disable2fa.mutate(enrollment.factorId);
+                  if (enrollment) cancelEnrollment.mutate(enrollment.factorId);
                   setEnrollment(null);
                   setVerifyCode("");
                 }}
