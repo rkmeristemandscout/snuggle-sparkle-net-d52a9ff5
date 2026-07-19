@@ -97,8 +97,12 @@ type TeamRow = {
   archived_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  updated_at?: string | null;
   avatar_url?: string | null;
   department_id?: string | null;
+  color?: string | null;
+  icon?: string | null;
+  status?: string | null;
 };
 
 type EnrichedTeam = TeamRow & {
@@ -106,11 +110,11 @@ type EnrichedTeam = TeamRow & {
   department?: { id: string; name: string } | null;
   member_count: number;
   project_count: number;
-
+  task_count: number;
 };
 
 type StatusFilter = "active" | "archived";
-type SortBy = "newest" | "oldest" | "az";
+type SortBy = "newest" | "oldest" | "az" | "za";
 
 function TeamsPage() {
   const { currentMembership } = useCurrentOrg();
