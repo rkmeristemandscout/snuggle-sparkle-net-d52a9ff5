@@ -128,6 +128,8 @@ function TeamsPage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<SortBy>("newest");
+  const [departmentId, setDepartmentId] = useState<string>("");
+  const [managerId, setManagerId] = useState<string>("");
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EnrichedTeam | null>(null);
 
