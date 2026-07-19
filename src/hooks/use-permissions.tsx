@@ -25,6 +25,7 @@ export type PermissionKey =
   | "invitation.view"
   | "invitation.manage"
   | "audit.view"
+  | "activity.view"
   | "feature_flag.manage"
   | "platform.admin";
 
