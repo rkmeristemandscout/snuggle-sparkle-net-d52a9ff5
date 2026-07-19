@@ -3,18 +3,44 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { profileSchema, type ProfileValues } from "@/lib/auth-schemas";
+import { profileSchema, passwordSchema, type ProfileValues } from "@/lib/auth-schemas";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
+
+const additionalSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .regex(/^[+0-9 ()-]*$/, "Digits, spaces, +, -, () only")
+    .optional()
+    .or(z.literal("")),
+  bio: z.string().trim().max(280, "Max 280 characters").optional().or(z.literal("")),
+});
+type AdditionalValues = z.infer<typeof additionalSchema>;
+
+const passwordFormSchema = z
+  .object({
+    password: passwordSchema,
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "Passwords don't match",
+    path: ["confirm"],
+  });
+type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 function ProfilePage() {
   const { user } = useSession();
