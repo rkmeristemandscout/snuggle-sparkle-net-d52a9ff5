@@ -253,7 +253,17 @@ export const updateTeam = createServerFn({ method: "POST" })
         fail("Department must belong to the same organization");
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      name?: string;
+      slug?: string;
+      description?: string | null;
+      owner_id?: string;
+      department_id?: string | null;
+      color?: string | null;
+      icon?: string | null;
+      status?: string;
+      archived_at?: string | null;
+    } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.slug !== undefined) patch.slug = data.slug;
     if (data.description !== undefined) patch.description = data.description || null;
