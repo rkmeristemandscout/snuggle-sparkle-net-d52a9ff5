@@ -20,6 +20,8 @@ export const listTeams = createServerFn({ method: "GET" })
       organizationId: string;
       search?: string;
       status?: "active" | "archived" | "deleted" | "all";
+      departmentId?: string | null;
+      managerId?: string | null;
       sort?: "created_at" | "name";
       dir?: "asc" | "desc";
       limit?: number;
@@ -30,9 +32,11 @@ export const listTeams = createServerFn({ method: "GET" })
           organizationId: uuid,
           search: z.string().trim().max(80).optional(),
           status: statusFilter,
+          departmentId: uuid.nullable().optional(),
+          managerId: uuid.nullable().optional(),
           sort: sortField,
           dir: sortDir,
-          limit: z.number().int().min(1).max(100).default(20),
+          limit: z.number().int().min(1).max(500).default(60),
           cursor: z
             .object({ created_at: z.string(), id: uuid })
             .nullable()
@@ -44,7 +48,7 @@ export const listTeams = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("teams")
       .select(
-        "id, name, slug, description, owner_id, archived_at, deleted_at, created_at, avatar_url, department_id",
+        "id, name, slug, description, owner_id, archived_at, deleted_at, created_at, updated_at, avatar_url, department_id, color, icon, status",
         { count: "exact" },
       )
       .eq("organization_id", data.organizationId);
@@ -55,6 +59,8 @@ export const listTeams = createServerFn({ method: "GET" })
     else if (data.status === "deleted") q = q.not("deleted_at", "is", null);
 
     if (data.search) q = q.ilike("name", `%${data.search}%`);
+    if (data.departmentId) q = q.eq("department_id", data.departmentId);
+    if (data.managerId) q = q.eq("owner_id", data.managerId);
 
     const asc = data.dir === "asc";
     q = q.order(data.sort, { ascending: asc }).order("id", { ascending: asc }).limit(data.limit);
@@ -72,6 +78,26 @@ export const listTeams = createServerFn({ method: "GET" })
         ? { created_at: list[list.length - 1].created_at, id: list[list.length - 1].id }
         : null;
     return { rows: list, nextCursor, total: count ?? null };
+  });
+
+export const getTeamsDashboardStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { organizationId: string }) =>
+    z.object({ organizationId: uuid }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase.rpc("get_teams_dashboard_stats", {
+      _org: data.organizationId,
+    });
+    if (error) fail(error.message);
+    return (row ?? {}) as {
+      total_teams: number;
+      active_teams: number;
+      archived_teams: number;
+      total_members: number;
+      active_projects: number;
+      pending_tasks: number;
+    };
   });
 
 
