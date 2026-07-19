@@ -1252,22 +1252,22 @@ function CreateTeamDialog({
 }
 
 type DashboardStats = {
-  total: number;
-  active: number;
-  archived: number;
-  members_total: number;
-  projects_total: number;
-  created_30d: number;
+  total_teams: number;
+  active_teams: number;
+  archived_teams: number;
+  total_members: number;
+  active_projects: number;
+  pending_tasks: number;
 } | null | undefined;
 
 function TeamsStats({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
   const items: Array<{ label: string; value: number | string; icon: React.ReactNode; tone: string }> = [
-    { label: "Total teams", value: stats?.total ?? 0, icon: <UsersRound className="h-4 w-4" />, tone: "from-primary/15 to-primary/5 text-primary" },
-    { label: "Active", value: stats?.active ?? 0, icon: <ArrowRight className="h-4 w-4" />, tone: "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400" },
-    { label: "Archived", value: stats?.archived ?? 0, icon: <Archive className="h-4 w-4" />, tone: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400" },
-    { label: "Members", value: stats?.members_total ?? 0, icon: <Users className="h-4 w-4" />, tone: "from-blue-500/15 to-blue-500/5 text-blue-600 dark:text-blue-400" },
-    { label: "Projects", value: stats?.projects_total ?? 0, icon: <FolderKanban className="h-4 w-4" />, tone: "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400" },
-    { label: "New (30d)", value: stats?.created_30d ?? 0, icon: <CalendarDays className="h-4 w-4" />, tone: "from-pink-500/15 to-pink-500/5 text-pink-600 dark:text-pink-400" },
+    { label: "Total teams", value: stats?.total_teams ?? 0, icon: <UsersRound className="h-4 w-4" />, tone: "from-primary/15 to-primary/5 text-primary" },
+    { label: "Active", value: stats?.active_teams ?? 0, icon: <ArrowRight className="h-4 w-4" />, tone: "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400" },
+    { label: "Archived", value: stats?.archived_teams ?? 0, icon: <Archive className="h-4 w-4" />, tone: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400" },
+    { label: "Members", value: stats?.total_members ?? 0, icon: <Users className="h-4 w-4" />, tone: "from-blue-500/15 to-blue-500/5 text-blue-600 dark:text-blue-400" },
+    { label: "Active projects", value: stats?.active_projects ?? 0, icon: <FolderKanban className="h-4 w-4" />, tone: "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400" },
+    { label: "Pending tasks", value: stats?.pending_tasks ?? 0, icon: <ListChecks className="h-4 w-4" />, tone: "from-pink-500/15 to-pink-500/5 text-pink-600 dark:text-pink-400" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
