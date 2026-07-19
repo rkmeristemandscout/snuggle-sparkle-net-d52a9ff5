@@ -119,7 +119,7 @@ const modalSchema = z.object({
   description: z.string().trim().max(280).optional().or(z.literal("")),
   managerId: z.string().uuid().nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
-  status: z.enum(["active", "on_hold", "planning"]).default("active"),
+  status: z.enum(["active", "on_hold", "planning"]),
 });
 type ModalValues = z.infer<typeof modalSchema>;
 
