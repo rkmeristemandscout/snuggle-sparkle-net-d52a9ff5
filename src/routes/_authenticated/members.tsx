@@ -367,8 +367,8 @@ function MembersPage() {
 
       let emailStatus: "sent" | "not_configured" | "failed" = "not_configured";
       try {
-        const { sendInvitationEmail } = await import("@/lib/invitations.functions");
-        const res = await sendInvitationEmail({
+        const { sendAuthInvitation } = await import("@/lib/invitations.functions");
+        const res = await sendAuthInvitation({
           data: {
             email: v.email,
             token,
