@@ -6,38 +6,87 @@ const slugify = (s: string) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "project";
 
 const ProjectStatus = z.enum(["planning", "active", "on_hold", "completed", "archived"]);
+const ProjectPriority = z.enum(["low", "medium", "high", "urgent"]);
 
 const CreateSchema = z.object({
   organization_id: z.string().uuid(),
   name: z.string().min(1).max(120),
-  description: z.string().max(2000).optional().nullable(),
-  status: ProjectStatus.optional(),
-  color: z.string().max(20).optional().nullable(),
+  code: z.string().max(40).optional().nullable(),
+  description: z.string().max(4000).optional().nullable(),
+  client: z.string().max(160).optional().nullable(),
+  department_id: z.string().uuid().optional().nullable(),
   team_id: z.string().uuid().optional().nullable(),
+  manager_id: z.string().uuid().optional().nullable(),
   owner_id: z.string().uuid().optional().nullable(),
+  priority: ProjectPriority.optional(),
+  status: ProjectStatus.optional(),
+  start_date: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
+  budget: z.number().nonnegative().optional().nullable(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  color: z.string().max(20).optional().nullable(),
+  cover_image_url: z.string().max(500).optional().nullable(),
+  logo_url: z.string().max(500).optional().nullable(),
+  member_ids: z.array(z.string().uuid()).max(200).optional(),
 });
 
-const UpdateSchema = z.object({
+const UpdateSchema = CreateSchema.partial().extend({
   id: z.string().uuid(),
-  name: z.string().min(1).max(120).optional(),
-  description: z.string().max(2000).optional().nullable(),
-  status: ProjectStatus.optional(),
-  color: z.string().max(20).optional().nullable(),
-  team_id: z.string().uuid().optional().nullable(),
-  owner_id: z.string().uuid().optional().nullable(),
-  due_date: z.string().optional().nullable(),
+  progress: z.number().int().min(0).max(100).optional(),
 });
+
+async function assertMember(ctx: { supabase: any; userId: string }, organization_id: string) {
+  const { data, error } = await ctx.supabase
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", organization_id)
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Not a member of this organization");
+}
+
+async function ensureUnique(ctx: { supabase: any }, org: string, name: string, code: string | null | undefined, excludeId?: string) {
+  const nameQ = ctx.supabase
+    .from("projects")
+    .select("id")
+    .eq("organization_id", org)
+    .is("deleted_at", null)
+    .ilike("name", name);
+  const { data: nameHit } = await nameQ;
+  if (nameHit?.some((r: any) => r.id !== excludeId)) {
+    throw new Error("A project with this name already exists");
+  }
+  if (code) {
+    const { data: codeHit } = await ctx.supabase
+      .from("projects")
+      .select("id")
+      .eq("organization_id", org)
+      .is("deleted_at", null)
+      .ilike("code", code);
+    if (codeHit?.some((r: any) => r.id !== excludeId)) {
+      throw new Error("A project with this code already exists");
+    }
+  }
+}
 
 export const listProjects = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { organization_id: string; search?: string; status?: string; limit?: number; offset?: number }) =>
+  .inputValidator((d: unknown) =>
     z
       .object({
         organization_id: z.string().uuid(),
         search: z.string().optional(),
         status: ProjectStatus.optional(),
-        limit: z.number().int().min(1).max(200).optional(),
+        priority: ProjectPriority.optional(),
+        department_id: z.string().uuid().optional(),
+        manager_id: z.string().uuid().optional(),
+        team_id: z.string().uuid().optional(),
+        include_archived: z.boolean().optional(),
+        include_deleted: z.boolean().optional(),
+        sort: z.enum(["created_at", "updated_at", "name", "due_date", "priority", "status", "progress"]).optional(),
+        order: z.enum(["asc", "desc"]).optional(),
+        limit: z.number().int().min(1).max(500).optional(),
         offset: z.number().int().min(0).optional(),
       })
       .parse(d),
@@ -46,23 +95,77 @@ export const listProjects = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("projects")
       .select("*", { count: "exact" })
-      .eq("organization_id", data.organization_id)
-      .order("created_at", { ascending: false })
-      .range(data.offset ?? 0, (data.offset ?? 0) + (data.limit ?? 50) - 1);
+      .eq("organization_id", data.organization_id);
+
+    if (!data.include_deleted) q = q.is("deleted_at", null);
+    if (!data.include_archived) q = q.is("archived_at", null);
     if (data.status) q = q.eq("status", data.status);
-    if (data.search) q = q.ilike("name", `%${data.search}%`);
+    if (data.priority) q = q.eq("priority", data.priority);
+    if (data.department_id) q = q.eq("department_id", data.department_id);
+    if (data.manager_id) q = q.eq("manager_id", data.manager_id);
+    if (data.team_id) q = q.eq("team_id", data.team_id);
+    if (data.search) q = q.or(`name.ilike.%${data.search}%,code.ilike.%${data.search}%,client.ilike.%${data.search}%`);
+
+    q = q
+      .order(data.sort ?? "created_at", { ascending: (data.order ?? "desc") === "asc" })
+      .range(data.offset ?? 0, (data.offset ?? 0) + (data.limit ?? 50) - 1);
+
     const { data: rows, error, count } = await q;
     if (error) throw new Error(error.message);
     return { rows: rows ?? [], count: count ?? 0 };
+  });
+
+export const getProject = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("projects")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Project not found");
+    return row;
+  });
+
+export const getProjectsStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ organization_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("projects")
+      .select("status,archived_at,deleted_at,budget,progress")
+      .eq("organization_id", data.organization_id);
+    if (error) throw new Error(error.message);
+    const active = rows.filter((r: any) => !r.deleted_at && !r.archived_at);
+    const totalBudget = active.reduce((s: number, r: any) => s + Number(r.budget || 0), 0);
+    const avgProgress = active.length
+      ? Math.round(active.reduce((s: number, r: any) => s + Number(r.progress || 0), 0) / active.length)
+      : 0;
+    return {
+      total: active.length,
+      by_status: {
+        planning: active.filter((r: any) => r.status === "planning").length,
+        active: active.filter((r: any) => r.status === "active").length,
+        on_hold: active.filter((r: any) => r.status === "on_hold").length,
+        completed: active.filter((r: any) => r.status === "completed").length,
+      },
+      archived: rows.filter((r: any) => r.archived_at && !r.deleted_at).length,
+      total_budget: totalBudget,
+      avg_progress: avgProgress,
+    };
   });
 
 export const createProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateSchema.parse(d))
   .handler(async ({ data, context }) => {
+    await assertMember(context, data.organization_id);
+    await ensureUnique(context, data.organization_id, data.name, data.code);
     const base = slugify(data.name);
     let slug = base;
-    for (let i = 1; i < 20; i++) {
+    for (let i = 1; i < 30; i++) {
       const { data: exists } = await context.supabase
         .from("projects")
         .select("id")
@@ -78,17 +181,39 @@ export const createProject = createServerFn({ method: "POST" })
         organization_id: data.organization_id,
         name: data.name,
         slug,
+        code: data.code ?? null,
         description: data.description ?? null,
-        status: data.status ?? "active",
-        color: data.color ?? null,
+        client: data.client ?? null,
+        department_id: data.department_id ?? null,
         team_id: data.team_id ?? null,
+        manager_id: data.manager_id ?? null,
         owner_id: data.owner_id ?? context.userId,
+        priority: data.priority ?? "medium",
+        status: data.status ?? "planning",
+        start_date: data.start_date ?? null,
         due_date: data.due_date ?? null,
+        budget: data.budget ?? null,
+        tags: data.tags ?? [],
+        color: data.color ?? null,
+        cover_image_url: data.cover_image_url ?? null,
+        logo_url: data.logo_url ?? null,
         created_by: context.userId,
       })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+
+    if (data.member_ids?.length) {
+      await context.supabase.from("project_members").insert(
+        data.member_ids.map((uid) => ({
+          project_id: row.id,
+          user_id: uid,
+          organization_id: data.organization_id,
+          role: "member",
+          added_by: context.userId,
+        })),
+      );
+    }
     return row;
   });
 
@@ -96,7 +221,19 @@ export const updateProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => UpdateSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { id, ...patch } = data;
+    const { id, member_ids: _mi, organization_id, ...patch } = data as any;
+    const { data: existing } = await context.supabase
+      .from("projects")
+      .select("organization_id,name,code")
+      .eq("id", id)
+      .maybeSingle();
+    if (!existing) throw new Error("Project not found");
+    const org = existing.organization_id;
+    if (patch.name && patch.name !== existing.name) {
+      await ensureUnique(context, org, patch.name, patch.code ?? existing.code, id);
+    } else if (patch.code && patch.code !== existing.code) {
+      await ensureUnique(context, org, existing.name, patch.code, id);
+    }
     const { data: row, error } = await context.supabase
       .from("projects")
       .update(patch)
@@ -107,11 +244,141 @@ export const updateProject = createServerFn({ method: "POST" })
     return row;
   });
 
+export const archiveProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("projects")
+      .update({ archived_at: new Date().toISOString(), status: "archived" })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const restoreProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("projects")
+      .update({ archived_at: null, deleted_at: null, status: "active" })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const deleteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), hard: z.boolean().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
+    if (data.hard) {
+      const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await context.supabase
+        .from("projects")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const duplicateProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), new_name: z.string().max(120).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: newId, error } = await context.supabase.rpc("duplicate_project", {
+      _project_id: data.id,
+      _new_name: data.new_name ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { id: newId as string };
+  });
+
+// ---------- Project members ----------
+
+export const listProjectMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_members")
+      .select("id, role, user_id, created_at, organization_id")
+      .eq("project_id", data.project_id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    const ids = (rows ?? []).map((r: any) => r.user_id);
+    let profiles: any[] = [];
+    if (ids.length) {
+      const { data: p } = await context.supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, email")
+        .in("id", ids);
+      profiles = p ?? [];
+    }
+    const byId = new Map(profiles.map((p: any) => [p.id, p]));
+    return (rows ?? []).map((r: any) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
+  });
+
+export const addProjectMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        project_id: z.string().uuid(),
+        user_id: z.string().uuid(),
+        role: z.enum(["manager", "lead", "member", "viewer"]).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: p } = await context.supabase
+      .from("projects")
+      .select("organization_id")
+      .eq("id", data.project_id)
+      .maybeSingle();
+    if (!p) throw new Error("Project not found");
+    const { error } = await context.supabase.from("project_members").insert({
+      project_id: data.project_id,
+      user_id: data.user_id,
+      organization_id: p.organization_id,
+      role: data.role ?? "member",
+      added_by: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const updateProjectMemberRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        role: z.enum(["manager", "lead", "member", "viewer"]),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("project_members")
+      .update({ role: data.role })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const removeProjectMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("project_members").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
