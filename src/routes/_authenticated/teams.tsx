@@ -690,9 +690,39 @@ function CreateTeamDialog({
   const createFn = useServerFn(createTeam);
   const setLeadFn = useServerFn(setTeamLead);
   const bulkAddFn = useServerFn(bulkAddTeamMembers);
+  const setAvatarFn = useServerFn(updateTeamAvatar);
 
   const [leadId, setLeadId] = useState<string>("");
+  const [departmentId, setDepartmentId] = useState<string>("");
   const [initialMembers, setInitialMembers] = useState<Record<string, boolean>>({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  const departments = useQuery({
+    enabled: open,
+    queryKey: ["departments-for-new-team", organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .eq("organization_id", organizationId)
+        .is("deleted_at", null)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 
   const orgMembers = useQuery({
     enabled: open,
