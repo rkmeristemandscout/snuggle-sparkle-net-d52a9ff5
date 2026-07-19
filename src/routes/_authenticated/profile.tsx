@@ -3,18 +3,44 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { profileSchema, type ProfileValues } from "@/lib/auth-schemas";
+import { profileSchema, passwordSchema, type ProfileValues } from "@/lib/auth-schemas";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
+
+const additionalSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .regex(/^[+0-9 ()-]*$/, "Digits, spaces, +, -, () only")
+    .optional()
+    .or(z.literal("")),
+  bio: z.string().trim().max(280, "Max 280 characters").optional().or(z.literal("")),
+});
+type AdditionalValues = z.infer<typeof additionalSchema>;
+
+const passwordFormSchema = z
+  .object({
+    password: passwordSchema,
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "Passwords don't match",
+    path: ["confirm"],
+  });
+type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 function ProfilePage() {
   const { user } = useSession();
@@ -28,7 +54,7 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url")
+        .select("id, full_name, avatar_url, phone, bio")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
@@ -97,6 +123,122 @@ function ProfilePage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // --- Additional info (phone, bio) ---
+  const additionalForm = useForm<AdditionalValues>({
+    resolver: zodResolver(additionalSchema),
+    defaultValues: { phone: "", bio: "" },
+  });
+  useEffect(() => {
+    if (profile.data)
+      additionalForm.reset({
+        phone: (profile.data as { phone?: string | null }).phone ?? "",
+        bio: (profile.data as { bio?: string | null }).bio ?? "",
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.data]);
+
+  const saveAdditional = useMutation({
+    mutationFn: async (v: AdditionalValues) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ phone: v.phone || null, bio: v.bio || null })
+        .eq("id", user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Details saved");
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- Change password ---
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: { password: "", confirm: "" },
+  });
+  const changePassword = useMutation({
+    mutationFn: async (v: PasswordFormValues) => {
+      const { error } = await supabase.auth.updateUser({ password: v.password });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Password updated");
+      passwordForm.reset({ password: "", confirm: "" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- 2FA (TOTP) ---
+  const factors = useQuery({
+    enabled: !!user,
+    queryKey: ["mfa-factors", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const verifiedTotp = factors.data?.totp?.find((f) => f.status === "verified");
+  const [enrollment, setEnrollment] = useState<{
+    factorId: string;
+    qr: string;
+    secret: string;
+  } | null>(null);
+  const [verifyCode, setVerifyCode] = useState("");
+
+  const startEnroll = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      setEnrollment({
+        factorId: data.id,
+        qr: data.totp.qr_code,
+        secret: data.totp.secret,
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const verifyEnroll = useMutation({
+    mutationFn: async () => {
+      if (!enrollment) throw new Error("No enrollment in progress");
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({
+        factorId: enrollment.factorId,
+      });
+      if (cErr) throw cErr;
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: enrollment.factorId,
+        challengeId: challenge.id,
+        code: verifyCode.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Two-factor authentication enabled");
+      setEnrollment(null);
+      setVerifyCode("");
+      factors.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const disable2fa = useMutation({
+    mutationFn: async (factorId: string) => {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Two-factor authentication disabled");
+      factors.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const initials = (profile.data?.full_name || user?.email || "?")
     .split(/\s+/)
     .map((s) => s[0])
@@ -162,6 +304,158 @@ function ProfilePage() {
           {saveProfile.isPending ? "Saving…" : "Save changes"}
         </Button>
       </form>
+
+      <form
+        onSubmit={additionalForm.handleSubmit((v) => saveAdditional.mutate(v))}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Additional info</h2>
+          <p className="text-sm text-muted-foreground">Optional contact details and bio.</p>
+        </div>
+        <div>
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" placeholder="+1 555 000 1234" {...additionalForm.register("phone")} />
+          {additionalForm.formState.errors.phone && (
+            <p className="mt-1 text-xs text-destructive">
+              {additionalForm.formState.errors.phone.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="bio">Bio</Label>
+          <Textarea
+            id="bio"
+            rows={3}
+            placeholder="A few words about you"
+            {...additionalForm.register("bio")}
+          />
+          {additionalForm.formState.errors.bio && (
+            <p className="mt-1 text-xs text-destructive">
+              {additionalForm.formState.errors.bio.message}
+            </p>
+          )}
+        </div>
+        <Button type="submit" disabled={saveAdditional.isPending}>
+          {saveAdditional.isPending ? "Saving…" : "Save details"}
+        </Button>
+      </form>
+
+      <form
+        onSubmit={passwordForm.handleSubmit((v) => changePassword.mutate(v))}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Change password</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose a strong password with at least 8 characters, a letter, and a number.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="new-password">New password</Label>
+          <Input id="new-password" type="password" {...passwordForm.register("password")} />
+          {passwordForm.formState.errors.password && (
+            <p className="mt-1 text-xs text-destructive">
+              {passwordForm.formState.errors.password.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="confirm-password">Confirm new password</Label>
+          <Input id="confirm-password" type="password" {...passwordForm.register("confirm")} />
+          {passwordForm.formState.errors.confirm && (
+            <p className="mt-1 text-xs text-destructive">
+              {passwordForm.formState.errors.confirm.message}
+            </p>
+          )}
+        </div>
+        <Button type="submit" disabled={changePassword.isPending}>
+          {changePassword.isPending ? "Updating…" : "Update password"}
+        </Button>
+      </form>
+
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Two-factor authentication</h2>
+            <p className="text-sm text-muted-foreground">
+              Add a second step to sign-in using an authenticator app (TOTP).
+            </p>
+          </div>
+          <Switch
+            checked={!!verifiedTotp}
+            disabled={
+              factors.isLoading ||
+              startEnroll.isPending ||
+              disable2fa.isPending ||
+              !!enrollment
+            }
+            onCheckedChange={(checked) => {
+              if (checked && !verifiedTotp) startEnroll.mutate();
+              else if (!checked && verifiedTotp) disable2fa.mutate(verifiedTotp.id);
+            }}
+          />
+        </div>
+
+        {verifiedTotp && !enrollment && (
+          <p className="text-sm text-emerald-600 dark:text-emerald-400">
+            2FA is enabled on this account.
+          </p>
+        )}
+
+        {enrollment && (
+          <div className="space-y-3 rounded-lg border bg-background p-4">
+            <p className="text-sm text-muted-foreground">
+              Scan the QR code with your authenticator app, then enter the 6-digit code to confirm.
+            </p>
+            <div className="flex items-start gap-4">
+              {/* Supabase returns an SVG data URL */}
+              <img
+                src={enrollment.qr}
+                alt="TOTP QR code"
+                className="h-40 w-40 rounded border bg-white p-2"
+              />
+              <div className="text-xs">
+                <p className="text-muted-foreground">Or enter this secret manually:</p>
+                <code className="mt-1 block break-all rounded bg-muted p-2 font-mono">
+                  {enrollment.secret}
+                </code>
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="totp">Verification code</Label>
+                <Input
+                  id="totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => verifyEnroll.mutate()}
+                disabled={verifyCode.length !== 6 || verifyEnroll.isPending}
+              >
+                {verifyEnroll.isPending ? "Verifying…" : "Verify"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (enrollment) disable2fa.mutate(enrollment.factorId);
+                  setEnrollment(null);
+                  setVerifyCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
