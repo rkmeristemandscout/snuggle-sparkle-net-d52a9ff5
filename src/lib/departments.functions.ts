@@ -194,14 +194,30 @@ export const updateDepartment = createServerFn({ method: "POST" })
 
 export const deleteDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .validator((d: { departmentId: string; force?: boolean }) =>
+    z.object({ departmentId: uuid, force: z.boolean().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
+    // Guard: prevent deleting a department that still contains employees
+    if (!data.force) {
+      const { count, error: countErr } = await context.supabase
+        .from("organization_members")
+        .select("id", { count: "exact", head: true })
+        .eq("department_id", data.departmentId);
+      if (countErr) fail(countErr.message);
+      if ((count ?? 0) > 0) {
+        fail(
+          `Cannot delete: ${count} employee(s) still assigned. Reassign or transfer them first.`,
+        );
+      }
+    }
     const { error } = await context.supabase.rpc("soft_delete_department", {
       _dept: data.departmentId,
     });
     if (error) fail(error.message);
     return { ok: true };
   });
+
 
 export const archiveDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
