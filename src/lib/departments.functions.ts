@@ -43,10 +43,11 @@ export const listDepartments = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("departments")
       .select(
-        "id, name, slug, description, manager_id, archived_at, deleted_at, created_at",
+        "id, name, slug, description, manager_id, parent_id, code, status, headcount_limit, archived_at, deleted_at, created_at",
         { count: "exact" },
       )
       .eq("organization_id", data.organizationId);
+
 
     if (data.status === "active") q = q.is("deleted_at", null).is("archived_at", null);
     else if (data.status === "archived")
@@ -193,14 +194,30 @@ export const updateDepartment = createServerFn({ method: "POST" })
 
 export const deleteDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: { departmentId: string }) => z.object({ departmentId: uuid }).parse(d))
+  .validator((d: { departmentId: string; force?: boolean }) =>
+    z.object({ departmentId: uuid, force: z.boolean().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
+    // Guard: prevent deleting a department that still contains employees
+    if (!data.force) {
+      const { count, error: countErr } = await context.supabase
+        .from("organization_members")
+        .select("id", { count: "exact", head: true })
+        .eq("department_id", data.departmentId);
+      if (countErr) fail(countErr.message);
+      if ((count ?? 0) > 0) {
+        fail(
+          `Cannot delete: ${count} employee(s) still assigned. Reassign or transfer them first.`,
+        );
+      }
+    }
     const { error } = await context.supabase.rpc("soft_delete_department", {
       _dept: data.departmentId,
     });
     if (error) fail(error.message);
     return { ok: true };
   });
+
 
 export const archiveDepartment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -403,4 +420,26 @@ export const transferDepartmentMembers = createServerFn({ method: "POST" })
     });
     if (error) fail(error.message);
     return { transferred: n as number };
+  });
+
+export const getDepartmentMemberCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { organizationId: string }) => z.object({ organizationId: uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("organization_members")
+      .select("department_id")
+      .eq("organization_id", data.organizationId);
+    if (error) fail(error.message);
+    const byDept: Record<string, number> = {};
+    let totalAssigned = 0;
+    let totalMembers = 0;
+    for (const r of rows ?? []) {
+      totalMembers += 1;
+      if (r.department_id) {
+        byDept[r.department_id] = (byDept[r.department_id] ?? 0) + 1;
+        totalAssigned += 1;
+      }
+    }
+    return { byDept, totalAssigned, totalMembers };
   });
