@@ -31,7 +31,7 @@ export const listDepartments = createServerFn({ method: "GET" })
           status: statusFilter,
           sort: sortField,
           dir: sortDir,
-          limit: z.number().int().min(1).max(100).default(50),
+          limit: z.number().int().min(1).max(500).default(50),
           cursor: z
             .object({ created_at: z.string(), id: uuid })
             .nullable()
