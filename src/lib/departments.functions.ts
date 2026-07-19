@@ -43,10 +43,11 @@ export const listDepartments = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("departments")
       .select(
-        "id, name, slug, description, manager_id, archived_at, deleted_at, created_at",
+        "id, name, slug, description, manager_id, parent_id, code, status, headcount_limit, archived_at, deleted_at, created_at",
         { count: "exact" },
       )
       .eq("organization_id", data.organizationId);
+
 
     if (data.status === "active") q = q.is("deleted_at", null).is("archived_at", null);
     else if (data.status === "archived")
