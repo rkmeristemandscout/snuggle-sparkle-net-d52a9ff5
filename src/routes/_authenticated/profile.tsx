@@ -433,21 +433,66 @@ function ProfilePage() {
             disabled={
               factors.isLoading ||
               startEnroll.isPending ||
-              disable2fa.isPending ||
+              cancelEnrollment.isPending ||
+              disableVerified.isPending ||
               !!enrollment
             }
             onCheckedChange={(checked) => {
-              if (checked && !verifiedTotp) startEnroll.mutate();
-              else if (!checked && verifiedTotp) disable2fa.mutate(verifiedTotp.id);
+              if (checked && !verifiedTotp) {
+                setDisableMode(false);
+                startEnroll.mutate();
+              } else if (!checked && verifiedTotp) {
+                setDisableMode(true);
+              }
             }}
           />
         </div>
 
-        {verifiedTotp && !enrollment && (
+        {verifiedTotp && !enrollment && !disableMode && (
           <p className="text-sm text-emerald-600 dark:text-emerald-400">
             2FA is enabled on this account.
           </p>
         )}
+
+        {verifiedTotp && disableMode && (
+          <div className="space-y-3 rounded-lg border bg-background p-4">
+            <p className="text-sm text-muted-foreground">
+              Enter a 6-digit code from your authenticator app to confirm turning off 2FA.
+            </p>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="totp-disable">Verification code</Label>
+                <Input
+                  id="totp-disable"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => disableVerified.mutate()}
+                disabled={disableCode.length !== 6 || disableVerified.isPending}
+              >
+                {disableVerified.isPending ? "Disabling…" : "Disable 2FA"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDisableMode(false);
+                  setDisableCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
 
         {enrollment && (
           <div className="space-y-3 rounded-lg border bg-background p-4">
