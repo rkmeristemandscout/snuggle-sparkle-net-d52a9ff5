@@ -914,6 +914,9 @@ function CreateTeamDialog({
   const [initialMembers, setInitialMembers] = useState<Record<string, boolean>>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [color, setColor] = useState<string>("#3b82f6");
+  const [teamStatus, setTeamStatus] = useState<"active" | "archived" | "on_hold">("active");
+  const COLOR_SWATCHES = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444", "#6366f1", "#14b8a6"];
 
   useEffect(() => {
     if (!avatarFile) {
