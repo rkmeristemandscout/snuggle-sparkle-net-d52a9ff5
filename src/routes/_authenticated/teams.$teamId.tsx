@@ -309,20 +309,6 @@ function TeamDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const changeRole = useMutation({
-    mutationFn: async (v: { id: string; role: "member" | "owner" }) => {
-      const { error } = await supabase
-        .from("team_members")
-        .update({ role: v.role })
-        .eq("id", v.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Role updated");
-      qc.invalidateQueries({ queryKey: ["team-members", teamId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
