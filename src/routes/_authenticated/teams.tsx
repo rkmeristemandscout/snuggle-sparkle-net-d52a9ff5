@@ -92,12 +92,15 @@ type TeamRow = {
   deleted_at: string | null;
   created_at: string;
   avatar_url?: string | null;
+  department_id?: string | null;
 };
 
 type EnrichedTeam = TeamRow & {
   owner?: { full_name: string | null; avatar_url: string | null } | null;
+  department?: { id: string; name: string } | null;
   member_count: number;
   project_count: number;
+
 };
 
 type StatusFilter = "active" | "archived";
