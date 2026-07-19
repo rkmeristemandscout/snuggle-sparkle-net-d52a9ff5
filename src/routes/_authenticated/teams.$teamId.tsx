@@ -629,6 +629,32 @@ function TeamDetail() {
           )}
         </div>
       </div>
+
+      <section className="rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Activity</h2>
+        {activity.isLoading ? (
+          <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+        ) : activity.data && activity.data.length ? (
+          <ul className="mt-4 space-y-3">
+            {activity.data.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-start justify-between gap-3 border-l-2 border-primary/40 pl-3"
+              >
+                <div>
+                  <p className="text-sm">{a.summary}</p>
+                  <p className="text-xs text-muted-foreground">{a.action}</p>
+                </div>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">No activity yet.</p>
+        )}
+      </section>
     </div>
   );
 }
