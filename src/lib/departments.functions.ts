@@ -183,7 +183,7 @@ export const updateDepartment = createServerFn({ method: "POST" })
     }
     const { data: row, error } = await context.supabase
       .from("departments")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.departmentId)
       .select("*")
       .single();
