@@ -496,9 +496,31 @@ function ProfilePage() {
 
         {enrollment && (
           <div className="space-y-3 rounded-lg border bg-background p-4">
-            <p className="text-sm text-muted-foreground">
-              Scan the QR code with your authenticator app, then enter the 6-digit code to confirm.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Scan the QR code with an <strong>authenticator app</strong> (Google Authenticator,
+                Microsoft Authenticator, Authy, or 1Password), then enter the 6-digit code to
+                confirm.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                ⚠️ Do <strong>not</strong> scan the QR with your phone&apos;s camera or web
+                browser — it will only show the raw <code>otpauth://</code> text. Open your
+                authenticator app first, then use its &quot;Scan QR code&quot; option. No app
+                installed? Install one from the App Store / Play Store, or click{" "}
+                <a
+                  className="underline"
+                  href={enrollment.qr}
+                  onClick={(e) => {
+                    // Try to hand off to an installed authenticator via the otpauth:// URI.
+                    e.preventDefault();
+                    window.location.href = `otpauth://totp/Multi-tenant%20SaaS?secret=${enrollment.secret}&issuer=Multi-tenant%20SaaS`;
+                  }}
+                >
+                  open in authenticator app
+                </a>
+                .
+              </p>
+            </div>
             <div className="flex items-start gap-4">
               {/* Supabase returns an SVG data URL */}
               <img
