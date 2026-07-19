@@ -790,6 +790,9 @@ function TeamCard({
                     <Archive className="mr-2 h-4 w-4" /> Archive
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicate
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
