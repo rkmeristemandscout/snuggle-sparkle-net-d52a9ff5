@@ -29,7 +29,7 @@ export type ActivityRow = {
   entity_type: string;
   entity_id: string | null;
   summary: string;
-  metadata: Record<string, unknown>;
+  metadata: unknown;
   created_at: string;
 };
 
