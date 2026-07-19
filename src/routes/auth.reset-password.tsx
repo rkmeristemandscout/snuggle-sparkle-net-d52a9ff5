@@ -77,10 +77,14 @@ function ResetPage() {
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
         <h1 className="text-xl font-semibold">Set a new password</h1>
         {!ready ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Open this page from the password-reset link in your email.
-          </p>
+          <div className="mt-4 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Open this page from the password-reset link in your email.
+            </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
         ) : (
+
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="password">New password</Label>
