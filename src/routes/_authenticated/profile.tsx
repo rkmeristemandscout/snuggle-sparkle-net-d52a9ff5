@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -157,6 +158,8 @@ function ProfilePage() {
     resolver: zodResolver(passwordFormSchema),
     defaultValues: { password: "", confirm: "" },
   });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const changePassword = useMutation({
     mutationFn: async (v: PasswordFormValues) => {
       const { error } = await supabase.auth.updateUser({ password: v.password });
@@ -399,7 +402,22 @@ function ProfilePage() {
         </div>
         <div>
           <Label htmlFor="new-password">New password</Label>
-          <Input id="new-password" type="password" {...passwordForm.register("password")} />
+          <div className="relative">
+            <Input
+              id="new-password"
+              type={showNewPassword ? "text" : "password"}
+              className="pr-10"
+              {...passwordForm.register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowNewPassword((v) => !v)}
+              aria-label={showNewPassword ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+            >
+              {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           {passwordForm.formState.errors.password && (
             <p className="mt-1 text-xs text-destructive">
               {passwordForm.formState.errors.password.message}
@@ -408,7 +426,22 @@ function ProfilePage() {
         </div>
         <div>
           <Label htmlFor="confirm-password">Confirm new password</Label>
-          <Input id="confirm-password" type="password" {...passwordForm.register("confirm")} />
+          <div className="relative">
+            <Input
+              id="confirm-password"
+              type={showConfirmPassword ? "text" : "password"}
+              className="pr-10"
+              {...passwordForm.register("confirm")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           {passwordForm.formState.errors.confirm && (
             <p className="mt-1 text-xs text-destructive">
               {passwordForm.formState.errors.confirm.message}
