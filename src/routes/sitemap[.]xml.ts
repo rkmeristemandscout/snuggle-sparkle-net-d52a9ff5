@@ -5,16 +5,21 @@ const BASE_URL = "https://snuggle-sparkle-net.lovable.app";
 
 interface SitemapEntry {
   path: string;
+  lastmod?: string;
   changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
   priority?: string;
 }
+
+// Build-time timestamp — refreshed on every deployment.
+const BUILD_TIME = new Date().toISOString();
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: () => {
         const entries: SitemapEntry[] = [
-          { path: "/", changefreq: "weekly", priority: "1.0" },
+          { path: "/", lastmod: BUILD_TIME, changefreq: "weekly", priority: "1.0" },
+          { path: "/auth", lastmod: BUILD_TIME, changefreq: "monthly", priority: "0.5" },
         ];
 
         const urls = entries
@@ -22,6 +27,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             [
               `  <url>`,
               `    <loc>${BASE_URL}${e.path}</loc>`,
+              e.lastmod ? `    <lastmod>${e.lastmod}</lastmod>` : null,
               e.changefreq ? `    <changefreq>${e.changefreq}</changefreq>` : null,
               e.priority ? `    <priority>${e.priority}</priority>` : null,
               `  </url>`,

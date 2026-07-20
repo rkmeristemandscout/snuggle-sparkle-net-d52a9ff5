@@ -45,6 +45,7 @@ import { Route as AuthenticatedBillingPlansRouteImport } from './routes/_authent
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe.webhook'
 import { Route as ApiPublicShareTokenRouteImport } from './routes/api/public/share.$token'
 import { Route as ApiPublicJobsCleanupRouteImport } from './routes/api/public/jobs.cleanup'
+import { Route as ApiPublicHooksPingSitemapRouteImport } from './routes/api/public/hooks/ping-sitemap'
 import { Route as AuthenticatedOrganizationsSlugSettingsRouteImport } from './routes/_authenticated/organizations.$slug.settings'
 import { Route as AuthenticatedOrganizationsSlugMembersRouteImport } from './routes/_authenticated/organizations.$slug.members'
 
@@ -238,6 +239,12 @@ const ApiPublicJobsCleanupRoute = ApiPublicJobsCleanupRouteImport.update({
   path: '/api/public/jobs/cleanup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksPingSitemapRoute =
+  ApiPublicHooksPingSitemapRouteImport.update({
+    id: '/api/public/hooks/ping-sitemap',
+    path: '/api/public/hooks/ping-sitemap',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedOrganizationsSlugSettingsRoute =
   AuthenticatedOrganizationsSlugSettingsRouteImport.update({
     id: '/settings',
@@ -286,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
+  '/api/public/hooks/ping-sitemap': typeof ApiPublicHooksPingSitemapRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
   '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
@@ -325,6 +333,7 @@ export interface FileRoutesByTo {
   '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
+  '/api/public/hooks/ping-sitemap': typeof ApiPublicHooksPingSitemapRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
   '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
@@ -366,6 +375,7 @@ export interface FileRoutesById {
   '/_authenticated/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/_authenticated/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/_authenticated/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
+  '/api/public/hooks/ping-sitemap': typeof ApiPublicHooksPingSitemapRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
   '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
+    | '/api/public/hooks/ping-sitemap'
     | '/api/public/jobs/cleanup'
     | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
@@ -446,6 +457,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
+    | '/api/public/hooks/ping-sitemap'
     | '/api/public/jobs/cleanup'
     | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
@@ -486,6 +498,7 @@ export interface FileRouteTypes {
     | '/_authenticated/teams/$teamId'
     | '/_authenticated/organizations/$slug/members'
     | '/_authenticated/organizations/$slug/settings'
+    | '/api/public/hooks/ping-sitemap'
     | '/api/public/jobs/cleanup'
     | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
@@ -497,6 +510,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   JoinTokenRoute: typeof JoinTokenRoute
+  ApiPublicHooksPingSitemapRoute: typeof ApiPublicHooksPingSitemapRoute
   ApiPublicJobsCleanupRoute: typeof ApiPublicJobsCleanupRoute
   ApiPublicShareTokenRoute: typeof ApiPublicShareTokenRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
@@ -756,6 +770,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicJobsCleanupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/ping-sitemap': {
+      id: '/api/public/hooks/ping-sitemap'
+      path: '/api/public/hooks/ping-sitemap'
+      fullPath: '/api/public/hooks/ping-sitemap'
+      preLoaderRoute: typeof ApiPublicHooksPingSitemapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/organizations/$slug/settings': {
       id: '/_authenticated/organizations/$slug/settings'
       path: '/settings'
@@ -945,6 +966,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   JoinTokenRoute: JoinTokenRoute,
+  ApiPublicHooksPingSitemapRoute: ApiPublicHooksPingSitemapRoute,
   ApiPublicJobsCleanupRoute: ApiPublicJobsCleanupRoute,
   ApiPublicShareTokenRoute: ApiPublicShareTokenRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
