@@ -458,8 +458,11 @@ function ProjectsPage() {
             ) : (
               <Download className="h-4 w-4" />
             )}{" "}
-            {isExporting ? "Exporting…" : "Export CSV"}
-          </Button>
+            {isExporting
+              ? exportProgress && exportProgress.rows > 0
+                ? `Exporting… ${exportProgress.rows.toLocaleString()} rows`
+                : "Exporting…"
+              : "Export CSV"}
           <Button
             size="sm"
             onClick={() => {
