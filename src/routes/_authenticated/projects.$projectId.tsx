@@ -912,3 +912,572 @@ function SettingsTab({ project }: { project: any }) {
     </Card>
   );
 }
+
+// ---------------- Files ----------------
+function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listProjectFiles);
+  const record = useServerFn(recordProjectFile);
+  const del = useServerFn(deleteProjectFile);
+  const sign = useServerFn(signProjectFile);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; name: string; mime: string } | null>(null);
+
+  const q = useQuery({
+    queryKey: ["project-files", projectId],
+    queryFn: () => list({ data: { project_id: projectId } }),
+  });
+  const inv = () => qc.invalidateQueries({ queryKey: ["project-files", projectId] });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel(`pfiles-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_files", filter: `project_id=eq.${projectId}` },
+        inv,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const doUpload = async (files: FileList | File[]) => {
+    const arr = Array.from(files);
+    if (!arr.length) return;
+    setBusy(true);
+    try {
+      for (const file of arr) {
+        if (file.size > 25 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 25MB`);
+          continue;
+        }
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+        const path = `${orgId}/${projectId}/${Date.now()}-${safe}`;
+        const { error } = await supabase.storage
+          .from("project-files")
+          .upload(path, file, { upsert: false, contentType: file.type || undefined });
+        if (error) throw error;
+        await record({
+          data: {
+            project_id: projectId,
+            organization_id: orgId,
+            file_name: file.name,
+            file_size: file.size,
+            mime_type: file.type || "application/octet-stream",
+            storage_path: path,
+          },
+        });
+      }
+      toast.success("Uploaded");
+      inv();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const openPreview = async (row: any) => {
+    try {
+      const { url } = await sign({ data: { storage_path: row.storage_path, expires_in: 600 } });
+      setPreview({ url, name: row.file_name, mime: row.mime_type });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const download = async (row: any) => {
+    try {
+      const { url } = await sign({ data: { storage_path: row.storage_path, expires_in: 300 } });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = row.file_name;
+      a.target = "_blank";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const remove = async (row: any) => {
+    try {
+      await del({ data: { id: row.id, storage_path: row.storage_path } });
+      toast.success("Deleted");
+      inv();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const rows = (q.data ?? []) as any[];
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Files</CardTitle>
+          <Badge variant="secondary">{rows.length}</Badge>
+        </div>
+        <div className="flex gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => e.target.files && doUpload(e.target.files)}
+          />
+          <Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? "Uploading…" : "Upload"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files.length) doUpload(e.dataTransfer.files);
+          }}
+          className={`mb-4 rounded-lg border-2 border-dashed p-6 text-center text-sm text-muted-foreground transition ${
+            dragOver ? "border-primary bg-primary/5" : ""
+          }`}
+        >
+          Drag &amp; drop files here, or click Upload. Max 25MB per file.
+        </div>
+        {q.isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No files uploaded yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {rows.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => openPreview(f)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <p className="truncate font-medium hover:underline">{f.file_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {((f.file_size ?? 0) / 1024).toFixed(1)} KB · {f.mime_type} ·{" "}
+                    {new Date(f.created_at).toLocaleString()}
+                  </p>
+                </button>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => download(f)} title="Download">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="icon" variant="ghost" title="Delete">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {f.file_name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This permanently removes the file from storage.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => remove(f)}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{preview?.name}</DialogTitle>
+          </DialogHeader>
+          {preview && (
+            <div className="max-h-[70vh] overflow-auto">
+              {preview.mime.startsWith("image/") ? (
+                <img src={preview.url} alt={preview.name} className="mx-auto max-h-[65vh]" />
+              ) : preview.mime.startsWith("video/") ? (
+                <video src={preview.url} controls className="w-full" />
+              ) : preview.mime.startsWith("audio/") ? (
+                <audio src={preview.url} controls className="w-full" />
+              ) : preview.mime === "application/pdf" ? (
+                <iframe src={preview.url} title={preview.name} className="h-[65vh] w-full" />
+              ) : (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  Preview not available for this file type.
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => preview && window.open(preview.url, "_blank")}>
+              Open in new tab
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+// ---------------- Discussions ----------------
+type DiscussionRow = {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  parent_id: string | null;
+  title: string | null;
+  body: string;
+  author_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function DiscussionsTab({ projectId, orgId }: { projectId: string; orgId: string }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listProjectDiscussions);
+  const create = useServerFn(createProjectDiscussion);
+  const upd = useServerFn(updateProjectDiscussion);
+  const del = useServerFn(deleteProjectDiscussion);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+
+  const q = useQuery({
+    queryKey: ["project-disc", projectId],
+    queryFn: () => list({ data: { project_id: projectId } }),
+  });
+  const inv = () => qc.invalidateQueries({ queryKey: ["project-disc", projectId] });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel(`pdisc-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_discussions", filter: `project_id=eq.${projectId}` },
+        inv,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const rows = (q.data ?? []) as DiscussionRow[];
+  const grouped = useMemo(() => {
+    const threads = rows.filter((r) => !r.parent_id);
+    const byParent = new Map<string, DiscussionRow[]>();
+    rows.filter((r) => r.parent_id).forEach((r) => {
+      const arr = byParent.get(r.parent_id!) ?? [];
+      arr.push(r);
+      byParent.set(r.parent_id!, arr);
+    });
+    return { threads, byParent };
+  }, [rows]);
+
+  const createMut = useMutation({
+    mutationFn: async () => {
+      if (!body.trim()) throw new Error("Message required");
+      return create({
+        data: {
+          project_id: projectId,
+          organization_id: orgId,
+          title: title.trim() || null,
+          body: body.trim(),
+        },
+      });
+    },
+    onSuccess: () => {
+      setTitle("");
+      setBody("");
+      toast.success("Discussion posted");
+      inv();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const replyMut = useMutation({
+    mutationFn: async (parentId: string) => {
+      if (!replyBody.trim()) throw new Error("Reply required");
+      return create({
+        data: {
+          project_id: projectId,
+          organization_id: orgId,
+          parent_id: parentId,
+          body: replyBody.trim(),
+        },
+      });
+    },
+    onSuccess: () => {
+      setReplyTo(null);
+      setReplyBody("");
+      inv();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    try {
+      await upd({ data: { id: editing, title: editTitle || null, body: editBody } });
+      setEditing(null);
+      toast.success("Updated");
+      inv();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Start a discussion</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Input
+            placeholder="Title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <Textarea
+            placeholder="Write a message…"
+            value={body}
+            rows={3}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <div className="flex justify-end">
+            <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
+              {createMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              Post
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {q.isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : grouped.threads.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            No discussions yet. Start the first one above.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {grouped.threads.map((t) => {
+            const replies = grouped.byParent.get(t.id) ?? [];
+            return (
+              <Card key={t.id}>
+                <CardContent className="p-4">
+                  <DiscussionBlock
+                    row={t}
+                    isEditing={editing === t.id}
+                    editTitle={editTitle}
+                    editBody={editBody}
+                    onEdit={() => {
+                      setEditing(t.id);
+                      setEditTitle(t.title ?? "");
+                      setEditBody(t.body);
+                    }}
+                    onCancelEdit={() => setEditing(null)}
+                    onChangeTitle={setEditTitle}
+                    onChangeBody={setEditBody}
+                    onSaveEdit={saveEdit}
+                    onDelete={async () => {
+                      await del({ data: { id: t.id } });
+                      inv();
+                    }}
+                    onReply={() => {
+                      setReplyTo(t.id);
+                      setReplyBody("");
+                    }}
+                    showTitle
+                  />
+
+                  {replies.length > 0 && (
+                    <div className="mt-3 space-y-3 border-l-2 pl-4">
+                      {replies.map((r) => (
+                        <DiscussionBlock
+                          key={r.id}
+                          row={r}
+                          isEditing={editing === r.id}
+                          editTitle=""
+                          editBody={editBody}
+                          onEdit={() => {
+                            setEditing(r.id);
+                            setEditBody(r.body);
+                          }}
+                          onCancelEdit={() => setEditing(null)}
+                          onChangeTitle={() => {}}
+                          onChangeBody={setEditBody}
+                          onSaveEdit={saveEdit}
+                          onDelete={async () => {
+                            await del({ data: { id: r.id } });
+                            inv();
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {replyTo === t.id && (
+                    <div className="mt-3 space-y-2 rounded-md border bg-muted/20 p-3">
+                      <Textarea
+                        placeholder="Write a reply…"
+                        value={replyBody}
+                        rows={2}
+                        onChange={(e) => setReplyBody(e.target.value)}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => setReplyTo(null)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => replyMut.mutate(t.id)}
+                          disabled={replyMut.isPending}
+                        >
+                          {replyMut.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Reply
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DiscussionBlock({
+  row,
+  isEditing,
+  editTitle,
+  editBody,
+  showTitle,
+  onEdit,
+  onCancelEdit,
+  onChangeTitle,
+  onChangeBody,
+  onSaveEdit,
+  onDelete,
+  onReply,
+}: {
+  row: DiscussionRow;
+  isEditing: boolean;
+  editTitle: string;
+  editBody: string;
+  showTitle?: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onChangeTitle: (v: string) => void;
+  onChangeBody: (v: string) => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
+  onReply?: () => void;
+}) {
+  if (isEditing) {
+    return (
+      <div className="space-y-2">
+        {showTitle && (
+          <Input
+            placeholder="Title"
+            value={editTitle}
+            onChange={(e) => onChangeTitle(e.target.value)}
+          />
+        )}
+        <Textarea value={editBody} rows={3} onChange={(e) => onChangeBody(e.target.value)} />
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onCancelEdit}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={onSaveEdit}>
+            Save
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      {showTitle && row.title && (
+        <h3 className="mb-1 text-base font-semibold">{row.title}</h3>
+      )}
+      <p className="whitespace-pre-wrap text-sm">{row.body}</p>
+      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {new Date(row.created_at).toLocaleString()}
+          {row.updated_at !== row.created_at && " · edited"}
+        </span>
+        <div className="flex gap-1">
+          {onReply && (
+            <Button size="sm" variant="ghost" onClick={onReply}>
+              <Reply className="h-3.5 w-3.5" /> Reply
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="ghost">
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes the post{row.parent_id ? "" : " and its replies"}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </div>
+  );
+}
