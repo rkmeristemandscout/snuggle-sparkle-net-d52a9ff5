@@ -12,6 +12,7 @@ import {
   listTimeEntries, startTimer, stopTimer, addManualTime, deleteTimeEntry,
 } from "@/lib/tasks.functions";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import { getCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -361,7 +362,12 @@ function CommentsTab({ task }: { task: TaskRow }) {
 
   const download = async (row: { storage_path: string; file_name: string }) => {
     try {
-      const { url } = await sign({ data: { storage_path: row.storage_path, expires_in: 300 } });
+      const EXPIRES = 300;
+      const url = await getCachedSignedUrl(
+        `task-attachments:${row.storage_path}:${EXPIRES}`,
+        EXPIRES,
+        async () => (await sign({ data: { storage_path: row.storage_path, expires_in: EXPIRES } })).url,
+      );
       const a = document.createElement("a");
       a.href = url; a.download = row.file_name; a.target = "_blank"; a.rel = "noopener";
       document.body.appendChild(a); a.click(); a.remove();
@@ -510,10 +516,20 @@ function AttachmentsTab({ task }: { task: TaskRow }) {
   };
 
   const download = async (path: string, name: string) => {
-    const { data, error } = await supabase.storage.from("task-attachments").createSignedUrl(path, 60);
-    if (error) { toast.error(error.message); return; }
-    const a = document.createElement("a");
-    a.href = data.signedUrl; a.download = name; a.target = "_blank"; a.click();
+    try {
+      const EXPIRES = 60;
+      const url = await getCachedSignedUrl(
+        `task-attachments:${path}:${EXPIRES}`,
+        EXPIRES,
+        async () => {
+          const { data, error } = await supabase.storage.from("task-attachments").createSignedUrl(path, EXPIRES);
+          if (error) throw error;
+          return data.signedUrl;
+        },
+      );
+      const a = document.createElement("a");
+      a.href = url; a.download = name; a.target = "_blank"; a.click();
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   return (
