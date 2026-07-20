@@ -1674,6 +1674,8 @@ function DiscussionBlock({
   onSaveEdit,
   onDelete,
   onReply,
+  reactions,
+  onToggleReaction,
 }: {
   row: DiscussionRow;
   isEditing: boolean;
@@ -1687,6 +1689,8 @@ function DiscussionBlock({
   onSaveEdit: () => void;
   onDelete: () => void;
   onReply?: () => void;
+  reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
+  onToggleReaction?: (emoji: string) => void;
 }) {
   if (isEditing) {
     return (
@@ -1710,12 +1714,52 @@ function DiscussionBlock({
       </div>
     );
   }
+  const emojiPalette = ["👍", "❤️", "🎉", "😄", "😮", "😢", "🚀", "👀"];
   return (
     <div>
       {showTitle && row.title && (
         <h3 className="mb-1 text-base font-semibold">{row.title}</h3>
       )}
       <p className="whitespace-pre-wrap text-sm">{row.body}</p>
+      {onToggleReaction && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {(reactions ?? []).map((r) => (
+            <button
+              key={r.emoji}
+              type="button"
+              onClick={() => onToggleReaction(r.emoji)}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                r.mine ? "border-primary bg-primary/10" : "hover:bg-muted"
+              }`}
+              aria-pressed={r.mine}
+            >
+              <span>{r.emoji}</span>
+              <span className="tabular-nums">{r.count}</span>
+            </button>
+          ))}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-6 w-6" aria-label="Add reaction">
+                <Smile className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" align="start">
+              <div className="flex flex-wrap gap-1">
+                {emojiPalette.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => onToggleReaction(e)}
+                    className="rounded p-1 text-lg hover:bg-muted"
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {new Date(row.created_at).toLocaleString()}
