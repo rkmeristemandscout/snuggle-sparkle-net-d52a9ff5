@@ -153,6 +153,7 @@ function ProjectsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectRow | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ rows: number; batches: number } | null>(null);
 
   const list = useServerFn(listProjects);
   const stats = useServerFn(getProjectsStats);
