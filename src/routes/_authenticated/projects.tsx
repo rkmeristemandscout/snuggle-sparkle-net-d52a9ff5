@@ -392,6 +392,7 @@ function ProjectsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to export CSV");
     } finally {
       setIsExporting(false);
+      setExportProgress(null);
     }
   };
 
