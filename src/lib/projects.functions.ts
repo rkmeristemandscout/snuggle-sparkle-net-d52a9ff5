@@ -540,7 +540,49 @@ export const listFileShares = createServerFn({ method: "GET" })
       .eq("file_id", data.file_id)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    const ids = Array.from(new Set((rows ?? []).map((r) => r.created_by).filter(Boolean))) as string[];
+    let names = new Map<string, string>();
+    if (ids.length) {
+      const { data: profs } = await context.supabase.from("profiles").select("id, full_name").in("id", ids);
+      names = new Map((profs ?? []).map((p) => [p.id as string, (p.full_name as string) ?? "Unknown"]));
+    }
+    return (rows ?? []).map((r) => ({ ...r, creator_name: r.created_by ? names.get(r.created_by) ?? null : null }));
+  });
+
+export const listProjectFileShares = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    project_id: z.string().uuid(),
+    status: z.enum(["all", "active", "expired", "revoked"]).default("all"),
+    limit: z.number().int().min(1).max(200).default(100),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    let q = context.supabase
+      .from("project_file_shares")
+      .select("*")
+      .eq("project_id", data.project_id)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    const nowIso = new Date().toISOString();
+    if (data.status === "active") q = q.is("revoked_at", null).gt("expires_at", nowIso);
+    else if (data.status === "expired") q = q.is("revoked_at", null).lte("expires_at", nowIso);
+    else if (data.status === "revoked") q = q.not("revoked_at", "is", null);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const shares = rows ?? [];
+    const uids = Array.from(new Set(shares.map((r) => r.created_by).filter(Boolean))) as string[];
+    const fids = Array.from(new Set(shares.map((r) => r.file_id)));
+    const [profRes, fileRes] = await Promise.all([
+      uids.length ? context.supabase.from("profiles").select("id, full_name").in("id", uids) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+      fids.length ? context.supabase.from("project_files").select("id, file_name").in("id", fids) : Promise.resolve({ data: [] as { id: string; file_name: string }[] }),
+    ]);
+    const nameMap = new Map((profRes.data ?? []).map((p) => [p.id, p.full_name ?? "Unknown"]));
+    const fileMap = new Map((fileRes.data ?? []).map((f) => [f.id, f.file_name]));
+    return shares.map((s) => ({
+      ...s,
+      creator_name: s.created_by ? nameMap.get(s.created_by) ?? null : null,
+      file_name: fileMap.get(s.file_id) ?? "(deleted file)",
+    }));
   });
 
 export const createFileShare = createServerFn({ method: "POST" })
