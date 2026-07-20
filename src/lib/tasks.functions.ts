@@ -292,26 +292,43 @@ export const deleteComment = createServerFn({ method: "POST" })
 /* -------------------- Attachments -------------------- */
 export const listAttachments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { task_id: string }) => z.object({ task_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { task_id: string; comment_id?: string | null }) =>
+    z.object({ task_id: z.string().uuid(), comment_id: z.string().uuid().nullable().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase.from("task_attachments").select("*").eq("task_id", data.task_id).order("created_at", { ascending: false });
+    let q = context.supabase.from("task_attachments").select("*").eq("task_id", data.task_id);
+    if (data.comment_id === null) q = q.is("comment_id", null);
+    else if (data.comment_id) q = q.eq("comment_id", data.comment_id);
+    const { data: rows, error } = await q.order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
 
 export const recordAttachment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { task_id: string; organization_id: string; file_name: string; file_size: number; mime_type: string; storage_path: string }) =>
+  .inputValidator((d: { task_id: string; organization_id: string; file_name: string; file_size: number; mime_type: string; storage_path: string; comment_id?: string | null }) =>
     z.object({
       task_id: z.string().uuid(), organization_id: z.string().uuid(),
       file_name: z.string().min(1), file_size: z.number().int().nonnegative(),
       mime_type: z.string(), storage_path: z.string().min(1),
+      comment_id: z.string().uuid().nullable().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: row, error } = await context.supabase.from("task_attachments").insert({ ...data, uploaded_by: context.userId }).select("*").single();
+    const { data: row, error } = await context.supabase.from("task_attachments").insert({ ...data, comment_id: data.comment_id ?? null, uploaded_by: context.userId }).select("*").single();
     if (error) throw new Error(error.message);
     return row;
+  });
+
+export const signTaskAttachment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { storage_path: string; expires_in?: number }) =>
+    z.object({ storage_path: z.string().min(1), expires_in: z.number().int().min(10).max(3600).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: sig, error } = await context.supabase.storage.from("task-attachments").createSignedUrl(data.storage_path, data.expires_in ?? 300);
+    if (error) throw new Error(error.message);
+    return { url: sig.signedUrl };
   });
 
 export const deleteAttachment = createServerFn({ method: "POST" })
