@@ -76,7 +76,9 @@ function AuthPage() {
           <Link to="/" className="text-lg font-semibold">
             Multi-tenant SaaS
           </Link>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in or create your account</p>
+          <h1 className="mt-1 text-sm text-muted-foreground font-normal">
+            Sign in or create your account
+          </h1>
         </div>
 
         <GoogleButton />
