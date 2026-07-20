@@ -102,6 +102,8 @@ function TasksPage() {
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaskRow | null>(null);
+  const [view, setView] = useState<"table" | "kanban">("table");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const list = useServerFn(listTasks);
   const stats = useServerFn(getTasksStats);
