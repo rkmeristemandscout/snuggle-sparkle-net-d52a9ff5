@@ -382,3 +382,123 @@ export const removeProjectMember = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* -------------------- Files -------------------- */
+export const listProjectFiles = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_files")
+      .select("*, profile:profiles!project_files_uploaded_by_fkey(id,full_name,avatar_url)")
+      .eq("project_id", data.project_id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const recordProjectFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    project_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    file_name: z.string().min(1).max(300),
+    file_size: z.number().int().nonnegative(),
+    mime_type: z.string().max(200),
+    storage_path: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("project_files")
+      .insert({ ...data, uploaded_by: context.userId })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const deleteProjectFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), storage_path: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await context.supabase.storage.from("project-files").remove([data.storage_path]);
+    const { error } = await context.supabase.from("project_files").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const signProjectFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ storage_path: z.string(), expires_in: z.number().int().min(10).max(3600).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: sig, error } = await context.supabase.storage
+      .from("project-files")
+      .createSignedUrl(data.storage_path, data.expires_in ?? 300);
+    if (error) throw new Error(error.message);
+    return { url: sig.signedUrl };
+  });
+
+/* -------------------- Discussions -------------------- */
+export const listProjectDiscussions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_discussions")
+      .select("*, author:profiles!project_discussions_author_id_fkey(id,full_name,avatar_url)")
+      .eq("project_id", data.project_id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const createProjectDiscussion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    project_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    parent_id: z.string().uuid().optional().nullable(),
+    title: z.string().max(200).optional().nullable(),
+    body: z.string().min(1).max(10000),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("project_discussions")
+      .insert({
+        project_id: data.project_id,
+        organization_id: data.organization_id,
+        parent_id: data.parent_id ?? null,
+        title: data.title ?? null,
+        body: data.body,
+        author_id: context.userId,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const updateProjectDiscussion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    id: z.string().uuid(),
+    title: z.string().max(200).optional().nullable(),
+    body: z.string().min(1).max(10000),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("project_discussions")
+      .update({ title: data.title ?? null, body: data.body })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteProjectDiscussion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("project_discussions").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
