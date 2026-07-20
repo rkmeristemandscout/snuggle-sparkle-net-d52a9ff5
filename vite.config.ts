@@ -13,10 +13,13 @@ export default defineConfig({
     server: { entry: "server" },
     // Pre-render public marketing/SEO routes at build time for SSG-like output.
     // Authenticated routes stay dynamic (SSR/CSR) and are not listed here.
-    prerender: {
-      enabled: true,
-      crawlLinks: false,
-      routes: ["/", "/auth", "/sitemap.xml", "/robots.txt"],
-    },
+    // Pre-render public marketing/SEO routes at build time for SSG-like output.
+    // Authenticated routes stay dynamic (SSR/CSR) and are not listed here.
+    pages: [
+      { path: "/", prerender: { enabled: true, crawlLinks: false } },
+      { path: "/auth", prerender: { enabled: true, crawlLinks: false } },
+      { path: "/sitemap.xml", prerender: { enabled: true, crawlLinks: false } },
+      { path: "/robots.txt", prerender: { enabled: true, crawlLinks: false } },
+    ],
   },
 });
