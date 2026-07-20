@@ -23,6 +23,7 @@ import {
   updateProjectDiscussion,
   deleteProjectDiscussion,
   listFileShares,
+  listProjectFileShares,
   createFileShare,
   revokeFileShare,
   listDiscussionReactions,
