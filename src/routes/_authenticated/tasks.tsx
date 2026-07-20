@@ -103,6 +103,7 @@ function TasksPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaskRow | null>(null);
   const [view, setView] = useState<"table" | "kanban">("table");
+  const [swimlane, setSwimlane] = useState<"none" | "assignee" | "department" | "team" | "priority">("none");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const list = useServerFn(listTasks);
@@ -428,13 +429,31 @@ function TasksPage() {
             ) : kanbanQ.isError ? (
               <div className="p-8 text-sm text-destructive">{(kanbanQ.error as Error).message}</div>
             ) : (
-              <KanbanBoard
-                tasks={((kanbanQ.data?.rows ?? []) as KanbanTask[])}
-                orgId={org.id}
-                memberName={displayName}
-                onMove={async (id, status) => { await doMut(() => update({ data: { id, status } }), "Task moved"); }}
-                onRealtime={refresh}
-              />
+              <div>
+                <div className="flex items-center justify-end gap-2 border-b bg-muted/30 px-4 py-2 text-xs">
+                  <span className="text-muted-foreground">Group by</span>
+                  <Select value={swimlane} onValueChange={(v) => setSwimlane(v as typeof swimlane)}>
+                    <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="assignee">Assignee</SelectItem>
+                      <SelectItem value="department">Department</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="priority">Priority</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <KanbanBoard
+                  tasks={((kanbanQ.data?.rows ?? []) as KanbanTask[])}
+                  orgId={org.id}
+                  memberName={displayName}
+                  departmentName={(id) => (id ? deptMap.get(id) ?? "—" : "—")}
+                  teamName={(id) => (id ? teamMap.get(id) ?? "—" : "—")}
+                  swimlane={swimlane}
+                  onMove={async (id, status) => { await doMut(() => update({ data: { id, status } }), "Task moved"); }}
+                  onRealtime={refresh}
+                />
+              </div>
             )
           ) : q.isLoading ? (
             <div className="space-y-2 p-4">

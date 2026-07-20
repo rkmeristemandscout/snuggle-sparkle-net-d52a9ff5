@@ -23,6 +23,7 @@ import {
   updateProjectDiscussion,
   deleteProjectDiscussion,
   listFileShares,
+  listProjectFileShares,
   createFileShare,
   revokeFileShare,
   listDiscussionReactions,
@@ -92,6 +93,7 @@ import {
   Share2,
   Search,
   Smile,
+  History,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSession } from "@/hooks/use-session";
@@ -943,14 +945,35 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string; mime: string } | null>(null);
   const [shareFor, setShareFor] = useState<{ id: string; name: string } | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE = 20;
+
+  // Debounce search so pagination resets are stable
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, typeFilter, fromDate, toDate]);
 
   const q = useQuery({
-    queryKey: ["project-files", projectId],
-    queryFn: () => list({ data: { project_id: projectId } }),
+    queryKey: ["project-files", projectId, debouncedSearch, typeFilter, fromDate, toDate, page],
+    queryFn: () => list({
+      data: {
+        project_id: projectId,
+        search: debouncedSearch || undefined,
+        kind: typeFilter === "all" ? undefined : (typeFilter as "image" | "video" | "audio" | "pdf" | "other"),
+        from: fromDate || undefined,
+        to: toDate || undefined,
+        limit: PAGE,
+        offset: page * PAGE,
+      },
+    }),
   });
   const inv = () => qc.invalidateQueries({ queryKey: ["project-files", projectId] });
 
@@ -1041,29 +1064,21 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
     }
   };
 
-  const allRows = (q.data ?? []) as any[];
-  const rows = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    const from = fromDate ? new Date(fromDate).getTime() : null;
-    const to = toDate ? new Date(toDate).getTime() + 24 * 3600_000 : null;
-    return allRows.filter((f) => {
-      if (s && !f.file_name.toLowerCase().includes(s)) return false;
-      if (typeFilter !== "all" && fileKind(f.mime_type || "") !== typeFilter) return false;
-      const t = new Date(f.created_at).getTime();
-      if (from && t < from) return false;
-      if (to && t > to) return false;
-      return true;
-    });
-  }, [allRows, search, typeFilter, fromDate, toDate]);
+  const rows = (q.data?.rows ?? []) as any[];
+  const total = (q.data?.count ?? 0) as number;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Files</CardTitle>
-          <Badge variant="secondary">{rows.length}{rows.length !== allRows.length ? ` / ${allRows.length}` : ""}</Badge>
+          <Badge variant="secondary">{total}</Badge>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)} title="Share audit trail">
+            <History className="h-4 w-4" /> Share audit
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -1124,58 +1139,69 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
           <Skeleton className="h-32 w-full" />
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {allRows.length === 0 ? "No files uploaded yet." : "No files match your filters."}
+            {total === 0 && !debouncedSearch && typeFilter === "all" && !fromDate && !toDate
+              ? "No files uploaded yet."
+              : "No files match your filters."}
           </p>
         ) : (
-          <ul className="divide-y">
-            {rows.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <button
-                  type="button"
-                  onClick={() => openPreview(f)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <p className="truncate font-medium hover:underline">{f.file_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {((f.file_size ?? 0) / 1024).toFixed(1)} KB · {f.mime_type} ·{" "}
-                    {new Date(f.created_at).toLocaleString()}
-                  </p>
-                </button>
-                <div className="flex gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setShareFor({ id: f.id, name: f.file_name })}
-                    title="Share link"
+          <>
+            <ul className="divide-y">
+              {rows.map((f) => (
+                <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => openPreview(f)}
+                    className="min-w-0 flex-1 text-left"
                   >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => download(f)} title="Download">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="icon" variant="ghost" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {f.file_name}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This permanently removes the file from storage.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => remove(f)}>Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <p className="truncate font-medium hover:underline">{f.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {((f.file_size ?? 0) / 1024).toFixed(1)} KB · {f.mime_type} ·{" "}
+                      {new Date(f.created_at).toLocaleString()}
+                    </p>
+                  </button>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setShareFor({ id: f.id, name: f.file_name })}
+                      title="Share link"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => download(f)} title="Download">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="ghost" title="Delete">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete {f.file_name}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the file from storage.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => remove(f)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+              <span>Page {page + 1} of {pages} · {total} total</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</Button>
+                <Button size="sm" variant="outline" disabled={page + 1 >= pages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
+          </>
         )}
       </CardContent>
 
@@ -1218,7 +1244,92 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
           onClose={() => setShareFor(null)}
         />
       )}
+
+      {auditOpen && <ShareAuditDialog projectId={projectId} onClose={() => setAuditOpen(false)} />}
     </Card>
+  );
+}
+
+function ShareAuditDialog({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const listAll = useServerFn(listProjectFileShares);
+  const revoke = useServerFn(revokeFileShare);
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<"all" | "active" | "expired" | "revoked">("all");
+  const q = useQuery({
+    queryKey: ["project-file-shares", projectId, status],
+    queryFn: () => listAll({ data: { project_id: projectId, status } }),
+  });
+  const inv = () => qc.invalidateQueries({ queryKey: ["project-file-shares", projectId] });
+  const rows = (q.data ?? []) as Array<{
+    id: string; token: string; file_id: string; file_name: string; creator_name: string | null;
+    created_by: string | null; created_at: string; expires_at: string; revoked_at: string | null;
+  }>;
+  const badgeFor = (s: (typeof rows)[number]) => {
+    if (s.revoked_at) return { label: "Revoked", tone: "bg-slate-500/15 text-slate-600" };
+    if (new Date(s.expires_at).getTime() < Date.now()) return { label: "Expired", tone: "bg-amber-500/15 text-amber-600" };
+    return { label: "Active", tone: "bg-emerald-500/15 text-emerald-600" };
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Share links · audit trail</DialogTitle>
+        </DialogHeader>
+        <div className="mb-3 flex items-center gap-2">
+          <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="revoked">Revoked</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">{rows.length} record{rows.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="max-h-[60vh] overflow-auto">
+          {q.isLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : rows.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">No share links recorded.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground">
+                <tr className="border-b">
+                  <th className="px-2 py-2 text-left">File</th>
+                  <th className="px-2 py-2 text-left">Created by</th>
+                  <th className="px-2 py-2 text-left">Created</th>
+                  <th className="px-2 py-2 text-left">Expires</th>
+                  <th className="px-2 py-2 text-left">Revoked</th>
+                  <th className="px-2 py-2 text-left">Status</th>
+                  <th className="px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => {
+                  const st = badgeFor(s);
+                  return (
+                    <tr key={s.id} className="border-b last:border-0">
+                      <td className="px-2 py-2 max-w-[220px] truncate" title={s.file_name}>{s.file_name}</td>
+                      <td className="px-2 py-2">{s.creator_name ?? "Unknown"}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString()}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{new Date(s.expires_at).toLocaleString()}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{s.revoked_at ? new Date(s.revoked_at).toLocaleString() : "—"}</td>
+                      <td className="px-2 py-2"><Badge className={st.tone} variant="secondary">{st.label}</Badge></td>
+                      <td className="px-2 py-2 text-right">
+                        {!s.revoked_at && (
+                          <Button size="sm" variant="ghost" onClick={async () => { await revoke({ data: { id: s.id } }); inv(); toast.success("Revoked"); }}>Revoke</Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
