@@ -432,7 +432,7 @@ function TasksPage() {
                 tasks={((kanbanQ.data?.rows ?? []) as KanbanTask[])}
                 orgId={org.id}
                 memberName={displayName}
-                onMove={(id, status) => doMut(() => update({ data: { id, status } }), "Task moved")}
+                onMove={async (id, status) => { await doMut(() => update({ data: { id, status } }), "Task moved"); }}
                 onRealtime={refresh}
               />
             )
