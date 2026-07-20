@@ -22,6 +22,11 @@ import {
   createProjectDiscussion,
   updateProjectDiscussion,
   deleteProjectDiscussion,
+  listFileShares,
+  createFileShare,
+  revokeFileShare,
+  listDiscussionReactions,
+  toggleDiscussionReaction,
 } from "@/lib/projects.functions";
 import { listTasks, createTask, updateTask, deleteTask } from "@/lib/tasks.functions";
 import { supabase } from "@/integrations/supabase/client";
