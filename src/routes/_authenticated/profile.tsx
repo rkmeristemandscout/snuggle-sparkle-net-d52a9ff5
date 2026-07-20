@@ -55,13 +55,28 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, phone, bio")
+        .select("id, full_name, avatar_url")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
+
+  const privateProfile = useQuery({
+    enabled: !!user,
+    queryKey: ["profile_private", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profile_private")
+        .select("user_id, phone, bio")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   const { register, handleSubmit, formState, reset } = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
