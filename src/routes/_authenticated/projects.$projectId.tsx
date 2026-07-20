@@ -1256,7 +1256,7 @@ function ShareAuditDialog({ projectId, onClose }: { projectId: string; onClose: 
   const revoke = useServerFn(revokeFileShare);
   const qc = useQueryClient();
   const { roleKeys, isSuperAdmin } = usePermissions();
-  const canExport = isSuperAdmin || roleKeys.some((r) => ["owner", "admin", "manager", "organization_owner"].includes(r));
+  const canExport = isSuperAdmin || roleKeys.some((r: string) => ["owner", "admin", "manager", "organization_owner"].includes(r));
   const [status, setStatus] = useState<"all" | "active" | "expired" | "revoked">("all");
   const q = useQuery({
     queryKey: ["project-file-shares", projectId, status],
