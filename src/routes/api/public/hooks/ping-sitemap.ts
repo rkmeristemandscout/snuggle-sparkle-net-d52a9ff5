@@ -22,18 +22,29 @@ type PingResult = {
 // Module-scoped cache — per Worker instance. Prevents burst-flooding upstreams.
 let lastPing: { at: number; payload: PingResult } | null = null;
 
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+/**
+ * Accepts either:
+ *   1. `x-sitemap-ping-secret` matching SITEMAP_PING_SECRET (for manual / CI use), or
+ *   2. `apikey` matching SUPABASE_PUBLISHABLE_KEY (used by the pg_cron schedule).
+ * Rejects everything else with 401.
+ */
 function authorize(request: Request): Response | null {
-  const expected = process.env.SITEMAP_PING_SECRET;
-  if (!expected) {
-    return new Response(JSON.stringify({ error: "Server misconfigured: SITEMAP_PING_SECRET not set" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  const provided = request.headers.get("x-sitemap-ping-secret") ?? "";
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+  const secret = process.env.SITEMAP_PING_SECRET;
+  const anon = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+  const providedSecret = request.headers.get("x-sitemap-ping-secret");
+  const providedApiKey = request.headers.get("apikey");
+
+  const secretOk = !!secret && !!providedSecret && safeEqual(providedSecret, secret);
+  const apiKeyOk = !!anon && !!providedApiKey && safeEqual(providedApiKey, anon);
+
+  if (!secretOk && !apiKeyOk) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
