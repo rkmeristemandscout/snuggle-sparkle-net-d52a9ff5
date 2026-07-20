@@ -89,7 +89,12 @@ import {
   Send,
   Reply,
   Pencil,
+  Share2,
+  Search,
+  Smile,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailsPage,
