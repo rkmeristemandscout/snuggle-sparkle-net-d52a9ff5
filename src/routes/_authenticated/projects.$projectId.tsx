@@ -14,6 +14,14 @@ import {
   addProjectMember,
   updateProjectMemberRole,
   removeProjectMember,
+  listProjectFiles,
+  recordProjectFile,
+  deleteProjectFile,
+  signProjectFile,
+  listProjectDiscussions,
+  createProjectDiscussion,
+  updateProjectDiscussion,
+  deleteProjectDiscussion,
 } from "@/lib/projects.functions";
 import { listTasks, createTask, updateTask, deleteTask } from "@/lib/tasks.functions";
 import { supabase } from "@/integrations/supabase/client";
