@@ -4,6 +4,24 @@ import { useSession } from "@/hooks/use-session";
 import { Building2, Lock, Users } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Multi-tenant SaaS — Production-ready workspace foundation" },
+      {
+        name: "description",
+        content:
+          "Launch your SaaS with multi-tenant workspaces, authentication, roles, and team management built in.",
+      },
+      { property: "og:title", content: "Multi-tenant SaaS — Production-ready workspace foundation" },
+      {
+        property: "og:description",
+        content:
+          "Launch your SaaS with multi-tenant workspaces, authentication, roles, and team management built in.",
+      },
+      { property: "og:url", content: "https://snuggle-sparkle-net.lovable.app/" },
+    ],
+    links: [{ rel: "canonical", href: "https://snuggle-sparkle-net.lovable.app/" }],
+  }),
   component: Landing,
 });
 
