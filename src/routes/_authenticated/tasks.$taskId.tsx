@@ -31,6 +31,8 @@ import {
   Paperclip, Download, MessageSquare, ListChecks, Clock, Activity as ActivityIcon,
   History, Upload,
 } from "lucide-react";
+import { MentionTextarea } from "@/components/tasks/mention-textarea";
+import { MentionContent } from "@/components/tasks/mention-content";
 
 export const Route = createFileRoute("/_authenticated/tasks/$taskId")({ component: TaskDetail });
 
@@ -264,6 +266,19 @@ function CommentsTab({ task }: { task: TaskRow }) {
   const q = useQuery({ queryKey: ["comments", task.id], queryFn: () => list({ data: { task_id: task.id } }) });
   const inv = () => qc.invalidateQueries({ queryKey: ["comments", task.id] });
 
+  const membersQ = useQuery({
+    queryKey: ["org-member-profiles", task.organization_id],
+    queryFn: async () => {
+      const { data: mems, error } = await supabase.from("organization_members").select("user_id").eq("organization_id", task.organization_id);
+      if (error) throw error;
+      const ids = (mems ?? []).map((m) => m.user_id).filter(Boolean);
+      if (!ids.length) return [] as Array<{ id: string; full_name: string | null }>;
+      const { data: profs, error: pe } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      if (pe) throw pe;
+      return (profs ?? []) as Array<{ id: string; full_name: string | null }>;
+    },
+  });
+
   useEffect(() => {
     const ch = supabase.channel(`cmt-${task.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_comments", filter: `task_id=eq.${task.id}` }, inv)
@@ -298,14 +313,14 @@ function CommentsTab({ task }: { task: TaskRow }) {
       </div>
       {editingId === c.id ? (
         <div className="space-y-2">
-          <Textarea rows={2} value={editingText} onChange={(e) => setEditingText(e.target.value)} />
+          <MentionTextarea value={editingText} onChange={setEditingText} members={membersQ.data ?? []} rows={2} />
           <div className="flex gap-2">
             <Button size="sm" onClick={() => upd({ data: { id: c.id, content: editingText } }).then(() => { setEditingId(null); inv(); })}>Save</Button>
             <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
           </div>
         </div>
       ) : (
-        <p className="whitespace-pre-wrap text-sm">{c.content}</p>
+        <MentionContent text={c.content} />
       )}
       {!indent && (
         <Button size="sm" variant="ghost" className="mt-1" onClick={() => setReplyTo(c.id)}>Reply</Button>
@@ -318,10 +333,17 @@ function CommentsTab({ task }: { task: TaskRow }) {
       <CardHeader><CardTitle className="text-base">Comments</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2">
-          <Textarea rows={2} placeholder={replyTo ? "Write a reply…" : "Add a comment…"} value={text} onChange={(e) => setText(e.target.value)} />
+          <MentionTextarea
+            value={text}
+            onChange={setText}
+            members={membersQ.data ?? []}
+            placeholder={replyTo ? "Write a reply… type @ to mention" : "Add a comment… type @ to mention"}
+            rows={2}
+          />
           <div className="flex items-center gap-2">
             <Button onClick={submit}>{replyTo ? "Reply" : "Post"}</Button>
             {replyTo && <Button variant="ghost" onClick={() => setReplyTo(null)}>Cancel reply</Button>}
+            <p className="text-xs text-muted-foreground">Tip: type <span className="font-mono">@</span> to mention a teammate.</p>
           </div>
         </div>
         <div className="space-y-2">

@@ -37,8 +37,10 @@ import {
 import {
   Plus, Search, RefreshCw, Download, MoreHorizontal, Pencil, Trash2, Copy,
   CheckCircle2, Archive, ArchiveRestore, Eye, ListChecks, Clock, AlertTriangle,
-  CalendarClock, TrendingUp, Flame,
+  CalendarClock, TrendingUp, Flame, LayoutGrid, List as ListIcon, X,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { KanbanBoard, type KanbanTask } from "@/components/tasks/kanban-board";
 
 export const Route = createFileRoute("/_authenticated/tasks")({ component: TasksPage });
 
@@ -100,6 +102,8 @@ function TasksPage() {
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaskRow | null>(null);
+  const [view, setView] = useState<"table" | "kanban">("table");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const list = useServerFn(listTasks);
   const stats = useServerFn(getTasksStats);
@@ -189,6 +193,29 @@ function TasksPage() {
   const total = q.data?.count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Kanban query: fetch all non-archived tasks for the current filter set (up to 500)
+  const kanbanQ = useQuery({
+    enabled: !!org && view === "kanban",
+    queryKey: ["tasks-kanban", org?.id, projectId, teamId, departmentId, assigneeId, priority, search, includeArchived],
+    queryFn: () =>
+      list({
+        data: {
+          organization_id: org!.id,
+          project_id: projectId === "all" ? undefined : projectId,
+          team_id: teamId === "all" ? undefined : teamId,
+          department_id: departmentId === "all" ? undefined : departmentId,
+          assignee_id: assigneeId === "all" ? undefined : assigneeId,
+          priority: priority === "all" ? undefined : priority,
+          search: search || undefined,
+          include_archived: includeArchived,
+          sort_by: "updated_at",
+          sort_dir: "desc",
+          limit: 500,
+          offset: 0,
+        },
+      }),
+  });
+
   const profileMap = useMemo(() => {
     const m = new Map<string, Profile>();
     (members.data ?? []).forEach((p) => m.set(p.id, p));
@@ -202,11 +229,29 @@ function TasksPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["tasks", org?.id] });
+    qc.invalidateQueries({ queryKey: ["tasks-kanban", org?.id] });
     qc.invalidateQueries({ queryKey: ["tasks-stats", org?.id] });
   };
 
+  const update = useServerFn(updateTask);
+
   const doMut = (fn: () => Promise<unknown>, msg: string) =>
     fn().then(() => { toast.success(msg); refresh(); }).catch((e: Error) => toast.error(e.message));
+
+  const clearSelection = () => setSelected(new Set());
+
+  const runBulk = async (label: string, fn: (id: string) => Promise<unknown>) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const results = await Promise.allSettled(ids.map(fn));
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const fail = results.length - ok;
+    if (fail === 0) toast.success(`${label} ${ok} task${ok === 1 ? "" : "s"}`);
+    else toast.warning(`${label} ${ok} of ${results.length} (${fail} failed)`);
+    clearSelection();
+    refresh();
+  };
+
 
   const exportCsv = () => {
     const headers = ["Code", "Title", "Project", "Team", "Department", "Assignee", "Reporter", "Priority", "Status", "Progress", "Est. Hours", "Logged Hours", "Start", "Due", "Updated"];
@@ -247,8 +292,26 @@ function TasksPage() {
           <p className="mt-1 text-sm text-muted-foreground">Plan, assign, and track work across {org.name}.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refresh} disabled={q.isFetching}>
-            <RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} /> Refresh
+          <div className="inline-flex overflow-hidden rounded-md border">
+            <Button
+              size="sm"
+              variant={view === "table" ? "secondary" : "ghost"}
+              className="rounded-none"
+              onClick={() => setView("table")}
+            >
+              <ListIcon className="h-4 w-4" /> Table
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "kanban" ? "secondary" : "ghost"}
+              className="rounded-none"
+              onClick={() => { clearSelection(); setView("kanban"); }}
+            >
+              <LayoutGrid className="h-4 w-4" /> Kanban
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={q.isFetching || kanbanQ.isFetching}>
+            <RefreshCw className={`h-4 w-4 ${q.isFetching || kanbanQ.isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}>
             <Download className="h-4 w-4" /> Export CSV
@@ -262,6 +325,43 @@ function TasksPage() {
           </Button>
         </div>
       </div>
+
+      {selected.size > 0 && view === "table" && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-primary/5 px-4 py-2 text-sm">
+          <div className="flex items-center gap-2">
+            <Checkbox checked onCheckedChange={() => clearSelection()} />
+            <span className="font-medium">{selected.size} selected</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => runBulk("Completed", (id) => comp({ data: { id } }))}>
+              <CheckCircle2 className="h-4 w-4" /> Complete
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => runBulk("Archived", (id) => arch({ data: { id } }))}>
+              <Archive className="h-4 w-4" /> Archive
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive">
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {selected.size} task{selected.size === 1 ? "" : "s"}?</AlertDialogTitle>
+                  <AlertDialogDescription>Tasks will be soft-deleted and can be restored later.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => runBulk("Deleted", (id) => del({ data: { id } }))}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button size="sm" variant="ghost" onClick={clearSelection}>
+              <X className="h-4 w-4" /> Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       <StatsCards s={statsQ.data} loading={statsQ.isLoading} />
 
@@ -322,7 +422,21 @@ function TasksPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {q.isLoading ? (
+          {view === "kanban" ? (
+            kanbanQ.isLoading ? (
+              <div className="p-4"><Skeleton className="h-96 w-full" /></div>
+            ) : kanbanQ.isError ? (
+              <div className="p-8 text-sm text-destructive">{(kanbanQ.error as Error).message}</div>
+            ) : (
+              <KanbanBoard
+                tasks={((kanbanQ.data?.rows ?? []) as KanbanTask[])}
+                orgId={org.id}
+                memberName={displayName}
+                onMove={async (id, status) => { await doMut(() => update({ data: { id, status } }), "Task moved"); }}
+                onRealtime={refresh}
+              />
+            )
+          ) : q.isLoading ? (
             <div className="space-y-2 p-4">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
             </div>
@@ -341,6 +455,18 @@ function TasksPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+                        onCheckedChange={(v) => {
+                          const next = new Set(selected);
+                          if (v) rows.forEach((r) => next.add(r.id));
+                          else rows.forEach((r) => next.delete(r.id));
+                          setSelected(next);
+                        }}
+                        aria-label="Select all on page"
+                      />
+                    </TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Task</TableHead>
                     <TableHead>Project</TableHead>
@@ -362,6 +488,17 @@ function TasksPage() {
                     const overdue = t.due_date && t.status !== "done" && t.status !== "cancelled" && new Date(t.due_date) < new Date(new Date().toDateString());
                     return (
                       <TableRow key={t.id} className={t.archived_at ? "opacity-60" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selected.has(t.id)}
+                            onCheckedChange={(v) => {
+                              const next = new Set(selected);
+                              if (v) next.add(t.id); else next.delete(t.id);
+                              setSelected(next);
+                            }}
+                            aria-label={`Select task ${t.title}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-xs">{t.code ?? "—"}</TableCell>
                         <TableCell className="max-w-[260px]">
                           <Link to="/tasks/$taskId" params={{ taskId: t.id }} className="font-medium hover:underline">
