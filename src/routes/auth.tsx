@@ -27,6 +27,19 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
+  head: () => ({
+    meta: [
+      { title: "Sign in or create your account — Multi-tenant SaaS" },
+      {
+        name: "description",
+        content: "Sign in to your workspace or create a new account to get started.",
+      },
+      { name: "robots", content: "noindex" },
+      { property: "og:title", content: "Sign in — Multi-tenant SaaS" },
+      { property: "og:url", content: "https://snuggle-sparkle-net.lovable.app/auth" },
+    ],
+    links: [{ rel: "canonical", href: "https://snuggle-sparkle-net.lovable.app/auth" }],
+  }),
   component: AuthPage,
 });
 
