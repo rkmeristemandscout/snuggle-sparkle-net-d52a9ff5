@@ -31,6 +31,8 @@ import {
   Paperclip, Download, MessageSquare, ListChecks, Clock, Activity as ActivityIcon,
   History, Upload,
 } from "lucide-react";
+import { MentionTextarea } from "@/components/tasks/mention-textarea";
+import { MentionContent } from "@/components/tasks/mention-content";
 
 export const Route = createFileRoute("/_authenticated/tasks/$taskId")({ component: TaskDetail });
 
