@@ -37,8 +37,10 @@ import {
 import {
   Plus, Search, RefreshCw, Download, MoreHorizontal, Pencil, Trash2, Copy,
   CheckCircle2, Archive, ArchiveRestore, Eye, ListChecks, Clock, AlertTriangle,
-  CalendarClock, TrendingUp, Flame,
+  CalendarClock, TrendingUp, Flame, LayoutGrid, List as ListIcon, X,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { KanbanBoard, type KanbanTask } from "@/components/tasks/kanban-board";
 
 export const Route = createFileRoute("/_authenticated/tasks")({ component: TasksPage });
 
