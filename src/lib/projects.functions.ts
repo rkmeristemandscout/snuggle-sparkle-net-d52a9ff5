@@ -502,3 +502,104 @@ export const deleteProjectDiscussion = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* -------------------- File Shares (signed URL links) -------------------- */
+export const listFileShares = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ file_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_file_shares")
+      .select("*")
+      .eq("file_id", data.file_id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const createFileShare = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    file_id: z.string().uuid(),
+    project_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    expires_in_hours: z.number().int().min(1).max(24 * 30),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    const expires_at = new Date(Date.now() + data.expires_in_hours * 3600_000).toISOString();
+    const { data: row, error } = await context.supabase
+      .from("project_file_shares")
+      .insert({
+        file_id: data.file_id,
+        project_id: data.project_id,
+        organization_id: data.organization_id,
+        token,
+        expires_at,
+        created_by: context.userId,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const revokeFileShare = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("project_file_shares")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* -------------------- Discussion Reactions -------------------- */
+export const listDiscussionReactions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("discussion_reactions")
+      .select("id, discussion_id, user_id, emoji, created_at")
+      .in(
+        "discussion_id",
+        (await context.supabase.from("project_discussions").select("id").eq("project_id", data.project_id)).data?.map((r) => r.id) ?? [],
+      );
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const toggleDiscussionReaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    discussion_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    emoji: z.string().min(1).max(16),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: existing } = await context.supabase
+      .from("discussion_reactions")
+      .select("id")
+      .eq("discussion_id", data.discussion_id)
+      .eq("user_id", context.userId)
+      .eq("emoji", data.emoji)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await context.supabase.from("discussion_reactions").delete().eq("id", existing.id);
+      if (error) throw new Error(error.message);
+      return { added: false };
+    }
+    const { error } = await context.supabase.from("discussion_reactions").insert({
+      discussion_id: data.discussion_id,
+      organization_id: data.organization_id,
+      user_id: context.userId,
+      emoji: data.emoji,
+    });
+    if (error) throw new Error(error.message);
+    return { added: true };
+  });
