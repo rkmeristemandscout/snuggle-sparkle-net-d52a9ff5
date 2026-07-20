@@ -262,6 +262,7 @@ function ProjectsPage() {
   const exportCSV = async () => {
     if (!org || isExporting) return;
     setIsExporting(true);
+    setExportProgress({ rows: 0, batches: 0 });
     const toastId = toast.loading("Preparing CSV export…");
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -269,6 +270,7 @@ function ProjectsPage() {
 
       const BATCH = 500;
       let offset = 0;
+      let batchCount = 0;
       const all: ProjectRow[] = [];
       // Paginate all projects for the current org (RLS-enforced server-side).
       // eslint-disable-next-line no-constant-condition
@@ -290,9 +292,14 @@ function ProjectsPage() {
         });
         const batch = (res?.rows ?? []) as ProjectRow[];
         all.push(...batch);
+        batchCount += 1;
+        setExportProgress({ rows: all.length, batches: batchCount });
+        toast.loading(`Fetching projects… ${all.length} row${all.length === 1 ? "" : "s"} (batch ${batchCount})`, { id: toastId });
         if (batch.length < BATCH) break;
         offset += BATCH;
         if (all.length >= 50000) break; // safety cap
+        // Yield to the event loop so the UI stays responsive on large exports.
+        await new Promise((r) => setTimeout(r, 0));
       }
 
       if (!all.length) {
@@ -300,6 +307,8 @@ function ProjectsPage() {
         toast.info("No projects to export.");
         return;
       }
+
+      toast.loading(`Formatting ${all.length} row${all.length === 1 ? "" : "s"}…`, { id: toastId });
 
       const fmtDate = (v: string | null | undefined) => {
         if (!v) return "";
