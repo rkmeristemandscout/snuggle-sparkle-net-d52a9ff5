@@ -441,8 +441,13 @@ function ProjectsPage() {
           <Button variant="outline" size="sm" onClick={refreshAll} disabled={q.isFetching}>
             <RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
-            <Download className="h-4 w-4" /> Export CSV
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={isExporting || !org}>
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}{" "}
+            {isExporting ? "Exporting…" : "Export CSV"}
           </Button>
           <Button
             size="sm"
