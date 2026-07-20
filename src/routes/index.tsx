@@ -4,6 +4,24 @@ import { useSession } from "@/hooks/use-session";
 import { Building2, Lock, Users } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Multi-tenant SaaS — Production-ready workspace foundation" },
+      {
+        name: "description",
+        content:
+          "Launch your SaaS with multi-tenant workspaces, authentication, roles, and team management built in.",
+      },
+      { property: "og:title", content: "Multi-tenant SaaS — Production-ready workspace foundation" },
+      {
+        property: "og:description",
+        content:
+          "Launch your SaaS with multi-tenant workspaces, authentication, roles, and team management built in.",
+      },
+      { property: "og:url", content: "https://snuggle-sparkle-net.lovable.app/" },
+    ],
+    links: [{ rel: "canonical", href: "https://snuggle-sparkle-net.lovable.app/" }],
+  }),
   component: Landing,
 });
 
@@ -62,30 +80,35 @@ function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-6 px-6 pb-24 md:grid-cols-3">
-        {[
-          {
-            icon: Lock,
-            title: "Secure auth",
-            body: "Email, Google, password reset, and email verification.",
-          },
-          {
-            icon: Building2,
-            title: "Organizations",
-            body: "Multi-tenant workspaces with owner, admin, and member roles.",
-          },
-          {
-            icon: Users,
-            title: "Team members",
-            body: "Invite, manage, and scope access per workspace.",
-          },
-        ].map(({ icon: Icon, title, body }) => (
-          <div key={title} className="rounded-xl border bg-card p-6">
-            <Icon className="h-6 w-6 text-primary" />
-            <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-          </div>
-        ))}
+      <section aria-labelledby="features-heading" className="mx-auto max-w-5xl px-6 pb-24">
+        <h2 id="features-heading" className="sr-only">
+          Platform features
+        </h2>
+        <div className="grid gap-6 md:grid-cols-3">
+          {[
+            {
+              icon: Lock,
+              title: "Secure auth",
+              body: "Email, Google, password reset, and email verification.",
+            },
+            {
+              icon: Building2,
+              title: "Organizations",
+              body: "Multi-tenant workspaces with owner, admin, and member roles.",
+            },
+            {
+              icon: Users,
+              title: "Team members",
+              body: "Invite, manage, and scope access per workspace.",
+            },
+          ].map(({ icon: Icon, title, body }) => (
+            <div key={title} className="rounded-xl border bg-card p-6">
+              <Icon className="h-6 w-6 text-primary" />
+              <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );
