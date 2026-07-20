@@ -362,7 +362,12 @@ function CommentsTab({ task }: { task: TaskRow }) {
 
   const download = async (row: { storage_path: string; file_name: string }) => {
     try {
-      const { url } = await sign({ data: { storage_path: row.storage_path, expires_in: 300 } });
+      const EXPIRES = 300;
+      const url = await getCachedSignedUrl(
+        `task-attachments:${row.storage_path}:${EXPIRES}`,
+        EXPIRES,
+        async () => (await sign({ data: { storage_path: row.storage_path, expires_in: EXPIRES } })).url,
+      );
       const a = document.createElement("a");
       a.href = url; a.download = row.file_name; a.target = "_blank"; a.rel = "noopener";
       document.body.appendChild(a); a.click(); a.remove();
