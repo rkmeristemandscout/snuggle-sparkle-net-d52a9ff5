@@ -1407,6 +1407,57 @@ function DiscussionsTab({ projectId, orgId }: { projectId: string; orgId: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const { user } = useSession();
+  const listReacts = useServerFn(listDiscussionReactions);
+  const toggleReact = useServerFn(toggleDiscussionReaction);
+  const reactionsQ = useQuery({
+    queryKey: ["disc-reactions", projectId],
+    queryFn: () => listReacts({ data: { project_id: projectId } }),
+  });
+  const invReactions = () => qc.invalidateQueries({ queryKey: ["disc-reactions", projectId] });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel(`dreact-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "discussion_reactions" },
+        invReactions,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const reactionsByDiscussion = useMemo(() => {
+    const map = new Map<string, Array<{ emoji: string; count: number; mine: boolean }>>();
+    const all = (reactionsQ.data ?? []) as Array<{ discussion_id: string; emoji: string; user_id: string }>;
+    for (const r of all) {
+      const list = map.get(r.discussion_id) ?? [];
+      const found = list.find((x) => x.emoji === r.emoji);
+      if (found) {
+        found.count += 1;
+        if (r.user_id === user?.id) found.mine = true;
+      } else {
+        list.push({ emoji: r.emoji, count: 1, mine: r.user_id === user?.id });
+      }
+      map.set(r.discussion_id, list);
+    }
+    return map;
+  }, [reactionsQ.data, user?.id]);
+
+  const onToggleReaction = async (discussionId: string, emoji: string) => {
+    try {
+      await toggleReact({ data: { discussion_id: discussionId, organization_id: orgId, emoji } });
+      invReactions();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+
   const rows = (q.data ?? []) as DiscussionRow[];
   const grouped = useMemo(() => {
     const threads = rows.filter((r) => !r.parent_id);
