@@ -79,6 +79,11 @@ import {
   Calendar as CalendarIcon,
   MessageSquare,
   BarChart3,
+  Upload,
+  Download,
+  Send,
+  Reply,
+  Pencil,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
