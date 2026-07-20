@@ -258,13 +258,40 @@ function CommentsTab({ task }: { task: TaskRow }) {
   const add = useServerFn(addComment);
   const upd = useServerFn(updateComment);
   const del = useServerFn(deleteComment);
+  const listAtt = useServerFn(listAttachments);
+  const recAtt = useServerFn(recordAttachment);
+  const delAtt = useServerFn(deleteAttachment);
+  const sign = useServerFn(signTaskAttachment);
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [pending, setPending] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const MAX = 15 * 1024 * 1024;
 
   const q = useQuery({ queryKey: ["comments", task.id], queryFn: () => list({ data: { task_id: task.id } }) });
-  const inv = () => qc.invalidateQueries({ queryKey: ["comments", task.id] });
+  const inv = () => {
+    qc.invalidateQueries({ queryKey: ["comments", task.id] });
+    qc.invalidateQueries({ queryKey: ["cmt-attachments", task.id] });
+    qc.invalidateQueries({ queryKey: ["attachments", task.id] });
+  };
+
+  const attQ = useQuery({
+    queryKey: ["cmt-attachments", task.id],
+    queryFn: () => listAtt({ data: { task_id: task.id } }),
+  });
+  const attByComment = useMemo(() => {
+    const map = new Map<string, Array<{ id: string; file_name: string; storage_path: string; file_size: number; mime_type: string }>>();
+    for (const a of (attQ.data ?? []) as Array<{ id: string; comment_id: string | null; file_name: string; storage_path: string; file_size: number; mime_type: string }>) {
+      if (!a.comment_id) continue;
+      const arr = map.get(a.comment_id) ?? [];
+      arr.push(a);
+      map.set(a.comment_id, arr);
+    }
+    return map;
+  }, [attQ.data]);
 
   const membersQ = useQuery({
     queryKey: ["org-member-profiles", task.organization_id],
@@ -282,8 +309,10 @@ function CommentsTab({ task }: { task: TaskRow }) {
   useEffect(() => {
     const ch = supabase.channel(`cmt-${task.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_comments", filter: `task_id=eq.${task.id}` }, inv)
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${task.id}` }, inv)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
 
   const comments = q.data ?? [];
@@ -294,39 +323,107 @@ function CommentsTab({ task }: { task: TaskRow }) {
     return { roots, byParent };
   }, [comments]);
 
-  const submit = () => {
-    if (!text.trim()) return;
-    add({ data: { task_id: task.id, organization_id: task.organization_id, content: text.trim(), parent_id: replyTo } })
-      .then(() => { setText(""); setReplyTo(null); inv(); }).catch((e: Error) => toast.error(e.message));
+  const pickFiles = (files: FileList | null) => {
+    if (!files) return;
+    const arr = Array.from(files).filter((f) => {
+      if (f.size > MAX) { toast.error(`${f.name} exceeds 15MB`); return false; }
+      return true;
+    });
+    setPending((p) => [...p, ...arr]);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
-  const renderOne = (c: (typeof comments)[number], indent = false) => (
-    <div key={c.id} className={`rounded-md border p-3 ${indent ? "ml-8" : ""}`}>
-      <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{new Date(c.created_at).toLocaleString()}</span>
-        {c.author_id === user?.id && (
-          <div className="flex gap-1">
-            <Button size="sm" variant="ghost" onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</Button>
-            <Button size="sm" variant="ghost" onClick={() => del({ data: { id: c.id } }).then(inv)}>Delete</Button>
+  const submit = async () => {
+    if (!text.trim() && pending.length === 0) return;
+    setBusy(true);
+    try {
+      const row = await add({ data: { task_id: task.id, organization_id: task.organization_id, content: text.trim() || "(attachment)", parent_id: replyTo } });
+      for (const file of pending) {
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+        const path = `${task.organization_id}/${task.id}/comments/${(row as { id: string }).id}/${Date.now()}-${safe}`;
+        const { error } = await supabase.storage.from("task-attachments").upload(path, file, { upsert: false, contentType: file.type || undefined });
+        if (error) throw error;
+        await recAtt({ data: {
+          task_id: task.id, organization_id: task.organization_id,
+          file_name: file.name, file_size: file.size,
+          mime_type: file.type || "application/octet-stream",
+          storage_path: path, comment_id: (row as { id: string }).id,
+        } });
+      }
+      setText(""); setReplyTo(null); setPending([]);
+      inv();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async (row: { storage_path: string; file_name: string }) => {
+    try {
+      const { url } = await sign({ data: { storage_path: row.storage_path, expires_in: 300 } });
+      const a = document.createElement("a");
+      a.href = url; a.download = row.file_name; a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const removeAttachment = async (a: { id: string; storage_path: string }) => {
+    try {
+      await supabase.storage.from("task-attachments").remove([a.storage_path]);
+      await delAtt({ data: { id: a.id } });
+      inv();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const renderOne = (c: (typeof comments)[number], indent = false) => {
+    const files = attByComment.get(c.id) ?? [];
+    return (
+      <div key={c.id} className={`rounded-md border p-3 ${indent ? "ml-8" : ""}`}>
+        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{new Date(c.created_at).toLocaleString()}</span>
+          {c.author_id === user?.id && (
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</Button>
+              <Button size="sm" variant="ghost" onClick={() => del({ data: { id: c.id } }).then(inv)}>Delete</Button>
+            </div>
+          )}
+        </div>
+        {editingId === c.id ? (
+          <div className="space-y-2">
+            <MentionTextarea value={editingText} onChange={setEditingText} members={membersQ.data ?? []} rows={2} />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => upd({ data: { id: c.id, content: editingText } }).then(() => { setEditingId(null); inv(); })}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+            </div>
           </div>
+        ) : (
+          <MentionContent text={c.content} />
+        )}
+        {files.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {files.map((f) => (
+              <li key={f.id} className="flex items-center gap-2 rounded border bg-muted/30 px-2 py-1 text-xs">
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <button type="button" onClick={() => download(f)} className="min-w-0 flex-1 truncate text-left hover:underline">
+                  {f.file_name}
+                </button>
+                <span className="text-muted-foreground">{(f.file_size / 1024).toFixed(1)} KB</span>
+                {c.author_id === user?.id && (
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAttachment(f)} title="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!indent && (
+          <Button size="sm" variant="ghost" className="mt-1" onClick={() => setReplyTo(c.id)}>Reply</Button>
         )}
       </div>
-      {editingId === c.id ? (
-        <div className="space-y-2">
-          <MentionTextarea value={editingText} onChange={setEditingText} members={membersQ.data ?? []} rows={2} />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => upd({ data: { id: c.id, content: editingText } }).then(() => { setEditingId(null); inv(); })}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
-          </div>
-        </div>
-      ) : (
-        <MentionContent text={c.content} />
-      )}
-      {!indent && (
-        <Button size="sm" variant="ghost" className="mt-1" onClick={() => setReplyTo(c.id)}>Reply</Button>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <Card>
@@ -340,10 +437,28 @@ function CommentsTab({ task }: { task: TaskRow }) {
             placeholder={replyTo ? "Write a reply… type @ to mention" : "Add a comment… type @ to mention"}
             rows={2}
           />
+          {pending.length > 0 && (
+            <ul className="space-y-1">
+              {pending.map((f, i) => (
+                <li key={i} className="flex items-center gap-2 rounded border bg-muted/30 px-2 py-1 text-xs">
+                  <Paperclip className="h-3 w-3" />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</span>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setPending((p) => p.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => pickFiles(e.target.files)} />
           <div className="flex items-center gap-2">
-            <Button onClick={submit}>{replyTo ? "Reply" : "Post"}</Button>
+            <Button onClick={submit} disabled={busy}>{busy ? "Posting…" : replyTo ? "Reply" : "Post"}</Button>
+            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
+              <Paperclip className="h-4 w-4" /> Attach
+            </Button>
             {replyTo && <Button variant="ghost" onClick={() => setReplyTo(null)}>Cancel reply</Button>}
-            <p className="text-xs text-muted-foreground">Tip: type <span className="font-mono">@</span> to mention a teammate.</p>
+            <p className="text-xs text-muted-foreground">Attach up to 15MB per file. Type <span className="font-mono">@</span> to mention.</p>
           </div>
         </div>
         <div className="space-y-2">
