@@ -148,7 +148,7 @@ export const updateTask = createServerFn({ method: "POST" })
       if (v === undefined) continue;
       clean[k] = v === "" ? null : v;
     }
-    const { data: row, error } = await context.supabase.from("tasks").update(clean).eq("id", id).select("*").single();
+    const { data: row, error } = await context.supabase.from("tasks").update(clean as never).eq("id", id).select("*").single();
     if (error) throw new Error(error.message);
     return row;
   });
