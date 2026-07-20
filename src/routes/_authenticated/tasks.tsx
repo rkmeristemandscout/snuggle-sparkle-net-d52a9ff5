@@ -193,6 +193,29 @@ function TasksPage() {
   const total = q.data?.count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Kanban query: fetch all non-archived tasks for the current filter set (up to 500)
+  const kanbanQ = useQuery({
+    enabled: !!org && view === "kanban",
+    queryKey: ["tasks-kanban", org?.id, projectId, teamId, departmentId, assigneeId, priority, search, includeArchived],
+    queryFn: () =>
+      list({
+        data: {
+          organization_id: org!.id,
+          project_id: projectId === "all" ? undefined : projectId,
+          team_id: teamId === "all" ? undefined : teamId,
+          department_id: departmentId === "all" ? undefined : departmentId,
+          assignee_id: assigneeId === "all" ? undefined : assigneeId,
+          priority: priority === "all" ? undefined : priority,
+          search: search || undefined,
+          include_archived: includeArchived,
+          sort_by: "updated_at",
+          sort_dir: "desc",
+          limit: 500,
+          offset: 0,
+        },
+      }),
+  });
+
   const profileMap = useMemo(() => {
     const m = new Map<string, Profile>();
     (members.data ?? []).forEach((p) => m.set(p.id, p));
@@ -206,11 +229,29 @@ function TasksPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["tasks", org?.id] });
+    qc.invalidateQueries({ queryKey: ["tasks-kanban", org?.id] });
     qc.invalidateQueries({ queryKey: ["tasks-stats", org?.id] });
   };
 
+  const update = useServerFn(updateTask);
+
   const doMut = (fn: () => Promise<unknown>, msg: string) =>
     fn().then(() => { toast.success(msg); refresh(); }).catch((e: Error) => toast.error(e.message));
+
+  const clearSelection = () => setSelected(new Set());
+
+  const runBulk = async (label: string, fn: (id: string) => Promise<unknown>) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const results = await Promise.allSettled(ids.map(fn));
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const fail = results.length - ok;
+    if (fail === 0) toast.success(`${label} ${ok} task${ok === 1 ? "" : "s"}`);
+    else toast.warning(`${label} ${ok} of ${results.length} (${fail} failed)`);
+    clearSelection();
+    refresh();
+  };
+
 
   const exportCsv = () => {
     const headers = ["Code", "Title", "Project", "Team", "Department", "Assignee", "Reporter", "Priority", "Status", "Progress", "Est. Hours", "Logged Hours", "Start", "Due", "Updated"];
