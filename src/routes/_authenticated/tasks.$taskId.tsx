@@ -8,7 +8,7 @@ import {
   getTask, updateTask, completeTask, archiveTask, restoreTask, duplicateTask, deleteTask,
   listChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   listComments, addComment, updateComment, deleteComment,
-  listAttachments, recordAttachment, deleteAttachment,
+  listAttachments, recordAttachment, deleteAttachment, signTaskAttachment,
   listTimeEntries, startTimer, stopTimer, addManualTime, deleteTimeEntry,
 } from "@/lib/tasks.functions";
 import { useCurrentOrg } from "@/hooks/use-current-org";
