@@ -1592,6 +1592,8 @@ function DiscussionsTab({ projectId, orgId }: { projectId: string; orgId: string
                       setReplyBody("");
                     }}
                     showTitle
+                    reactions={reactionsByDiscussion.get(t.id) ?? []}
+                    onToggleReaction={(emoji) => onToggleReaction(t.id, emoji)}
                   />
 
                   {replies.length > 0 && (
