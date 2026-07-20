@@ -482,7 +482,7 @@ function AttachmentsTab({ task }: { task: TaskRow }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
-  const q = useQuery({ queryKey: ["attachments", task.id], queryFn: () => list({ data: { task_id: task.id } }) });
+  const q = useQuery({ queryKey: ["attachments", task.id], queryFn: () => list({ data: { task_id: task.id, comment_id: null } }) });
   const inv = () => qc.invalidateQueries({ queryKey: ["attachments", task.id] });
 
   useEffect(() => {
