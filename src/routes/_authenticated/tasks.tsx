@@ -103,6 +103,7 @@ function TasksPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaskRow | null>(null);
   const [view, setView] = useState<"table" | "kanban">("table");
+  const [swimlane, setSwimlane] = useState<"none" | "assignee" | "department" | "team" | "priority">("none");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const list = useServerFn(listTasks);
