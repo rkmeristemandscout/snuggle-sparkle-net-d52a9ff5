@@ -422,7 +422,21 @@ function TasksPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {q.isLoading ? (
+          {view === "kanban" ? (
+            kanbanQ.isLoading ? (
+              <div className="p-4"><Skeleton className="h-96 w-full" /></div>
+            ) : kanbanQ.isError ? (
+              <div className="p-8 text-sm text-destructive">{(kanbanQ.error as Error).message}</div>
+            ) : (
+              <KanbanBoard
+                tasks={((kanbanQ.data?.rows ?? []) as KanbanTask[])}
+                orgId={org.id}
+                memberName={displayName}
+                onMove={(id, status) => doMut(() => update({ data: { id, status } }), "Task moved")}
+                onRealtime={refresh}
+              />
+            )
+          ) : q.isLoading ? (
             <div className="space-y-2 p-4">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
             </div>
@@ -441,6 +455,18 @@ function TasksPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+                        onCheckedChange={(v) => {
+                          const next = new Set(selected);
+                          if (v) rows.forEach((r) => next.add(r.id));
+                          else rows.forEach((r) => next.delete(r.id));
+                          setSelected(next);
+                        }}
+                        aria-label="Select all on page"
+                      />
+                    </TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Task</TableHead>
                     <TableHead>Project</TableHead>
@@ -462,7 +488,17 @@ function TasksPage() {
                     const overdue = t.due_date && t.status !== "done" && t.status !== "cancelled" && new Date(t.due_date) < new Date(new Date().toDateString());
                     return (
                       <TableRow key={t.id} className={t.archived_at ? "opacity-60" : ""}>
-                        <TableCell className="font-mono text-xs">{t.code ?? "—"}</TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={selected.has(t.id)}
+                            onCheckedChange={(v) => {
+                              const next = new Set(selected);
+                              if (v) next.add(t.id); else next.delete(t.id);
+                              setSelected(next);
+                            }}
+                            aria-label={`Select task ${t.title}`}
+                          />
+                        </TableCell>
                         <TableCell className="max-w-[260px]">
                           <Link to="/tasks/$taskId" params={{ taskId: t.id }} className="font-medium hover:underline">
                             {t.title}
