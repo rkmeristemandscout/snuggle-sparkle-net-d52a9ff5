@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /join/
+Disallow: /api/
+
+Sitemap: https://snuggle-sparkle-net.lovable.app/sitemap.xml
