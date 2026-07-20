@@ -258,41 +258,131 @@ function ProjectsPage() {
     toast.success("Refreshed");
   };
 
-  const exportCSV = () => {
-    if (!rows.length) return;
-    const headers = [
-      "name", "code", "client", "status", "priority", "progress", "budget",
-      "department", "team", "manager", "start_date", "due_date", "updated_at",
-    ];
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) =>
-        [
-          r.name,
-          r.code ?? "",
-          r.client ?? "",
-          r.status,
-          r.priority,
-          r.progress,
-          r.budget ?? "",
-          deptMap.get(r.department_id ?? "") ?? "",
-          teamMap.get(r.team_id ?? "") ?? "",
-          memberMap.get(r.manager_id ?? "")?.full_name ?? "",
-          r.start_date ?? "",
-          r.due_date ?? "",
-          r.updated_at,
-        ]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(","),
-      ),
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `projects-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportCSV = async () => {
+    if (!org || isExporting) return;
+    setIsExporting(true);
+    const toastId = toast.loading("Preparing CSV export…");
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) throw new Error("You must be signed in to export projects.");
+
+      const BATCH = 500;
+      let offset = 0;
+      const all: ProjectRow[] = [];
+      // Paginate all projects for the current org (RLS-enforced server-side).
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await list({
+          data: {
+            organization_id: org.id,
+            search: search || undefined,
+            status: status === "all" ? undefined : status,
+            priority: priority === "all" ? undefined : priority,
+            department_id: deptId === "all" ? undefined : deptId,
+            manager_id: managerId === "all" ? undefined : managerId,
+            include_archived: includeArchived,
+            sort,
+            order,
+            limit: BATCH,
+            offset,
+          },
+        });
+        const batch = (res?.rows ?? []) as ProjectRow[];
+        all.push(...batch);
+        if (batch.length < BATCH) break;
+        offset += BATCH;
+        if (all.length >= 50000) break; // safety cap
+      }
+
+      if (!all.length) {
+        toast.dismiss(toastId);
+        toast.info("No projects to export.");
+        return;
+      }
+
+      const fmtDate = (v: string | null | undefined) => {
+        if (!v) return "";
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toISOString().slice(0, 10);
+      };
+      const fmtDateTime = (v: string | null | undefined) => {
+        if (!v) return "";
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleString("en-US", { timeZone: "UTC", hour12: false }) + " UTC";
+      };
+      const escape = (v: unknown) => {
+        const s = v === null || v === undefined ? "" : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      };
+
+      const headers = [
+        "Project Name",
+        "Project Key",
+        "Description",
+        "Status",
+        "Priority",
+        "Owner",
+        "Team",
+        "Department",
+        "Start Date",
+        "Due Date",
+        "Progress (%)",
+        "Created At",
+        "Updated At",
+      ];
+
+      const lines = [headers.map(escape).join(",")];
+      for (const r of all) {
+        lines.push(
+          [
+            r.name,
+            r.code ?? "",
+            r.description ?? "",
+            r.status,
+            r.priority,
+            memberMap.get(r.owner_id ?? "")?.full_name ??
+              memberMap.get(r.manager_id ?? "")?.full_name ??
+              "",
+            teamMap.get(r.team_id ?? "") ?? "",
+            deptMap.get(r.department_id ?? "") ?? "",
+            fmtDate(r.start_date),
+            fmtDate(r.due_date),
+            r.progress ?? 0,
+            fmtDateTime(r.created_at),
+            fmtDateTime(r.updated_at),
+          ]
+            .map(escape)
+            .join(","),
+        );
+      }
+      // UTF-8 BOM for Excel compatibility
+      const csv = "\ufeff" + lines.join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (org.slug || org.name || "workspace")
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60) || "workspace";
+      a.download = `projects-${safeName}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      toast.dismiss(toastId);
+      toast.success(`Exported ${all.length} project${all.length === 1 ? "" : "s"}`);
+    } catch (err) {
+      console.error("[projects] CSV export failed", err);
+      toast.dismiss(toastId);
+      toast.error(err instanceof Error ? err.message : "Failed to export CSV");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const delMut = useMutation({
