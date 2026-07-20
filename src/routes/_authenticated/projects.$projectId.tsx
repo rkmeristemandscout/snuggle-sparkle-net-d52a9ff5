@@ -325,7 +325,7 @@ function ProjectDetailsPage() {
           <TeamTab projectId={projectId} orgId={p.organization_id} />
         </TabsContent>
         <TabsContent value="files" className="mt-4">
-          <ComingSoon label="Files" />
+          <FilesTab projectId={projectId} orgId={p.organization_id} />
         </TabsContent>
         <TabsContent value="calendar" className="mt-4">
           <CalendarTab projectId={projectId} />
@@ -334,7 +334,7 @@ function ProjectDetailsPage() {
           <ActivityTab projectId={projectId} />
         </TabsContent>
         <TabsContent value="discussions" className="mt-4">
-          <ComingSoon label="Discussions" />
+          <DiscussionsTab projectId={projectId} orgId={p.organization_id} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4">
           <AnalyticsTab projectId={projectId} />
