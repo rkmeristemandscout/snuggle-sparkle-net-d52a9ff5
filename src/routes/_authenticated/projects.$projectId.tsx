@@ -1254,6 +1254,8 @@ function ShareAuditDialog({ projectId, onClose }: { projectId: string; onClose: 
   const listAll = useServerFn(listProjectFileShares);
   const revoke = useServerFn(revokeFileShare);
   const qc = useQueryClient();
+  const { roleKeys, isSuperAdmin } = usePermissions();
+  const canExport = isSuperAdmin || roleKeys.some((r) => ["owner", "admin", "manager", "organization_owner"].includes(r));
   const [status, setStatus] = useState<"all" | "active" | "expired" | "revoked">("all");
   const q = useQuery({
     queryKey: ["project-file-shares", projectId, status],
@@ -1268,6 +1270,34 @@ function ShareAuditDialog({ projectId, onClose }: { projectId: string; onClose: 
     if (s.revoked_at) return { label: "Revoked", tone: "bg-slate-500/15 text-slate-600" };
     if (new Date(s.expires_at).getTime() < Date.now()) return { label: "Expired", tone: "bg-amber-500/15 text-amber-600" };
     return { label: "Active", tone: "bg-emerald-500/15 text-emerald-600" };
+  };
+  const exportCsv = () => {
+    const esc = (v: unknown) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["File", "Created by", "Created at", "Expires at", "Revoked at", "Status", "Share ID", "Token"];
+    const lines = [header.join(",")];
+    for (const s of rows) {
+      lines.push([
+        esc(s.file_name),
+        esc(s.creator_name ?? ""),
+        esc(s.created_at),
+        esc(s.expires_at),
+        esc(s.revoked_at ?? ""),
+        esc(badgeFor(s).label),
+        esc(s.id),
+        esc(s.token),
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `share-audit-${projectId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} record${rows.length === 1 ? "" : "s"}`);
   };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -1286,6 +1316,11 @@ function ShareAuditDialog({ projectId, onClose }: { projectId: string; onClose: 
             </SelectContent>
           </Select>
           <span className="text-xs text-muted-foreground">{rows.length} record{rows.length === 1 ? "" : "s"}</span>
+          {canExport && (
+            <Button size="sm" variant="outline" className="ml-auto" onClick={exportCsv} disabled={rows.length === 0}>
+              Export CSV
+            </Button>
+          )}
         </div>
         <div className="max-h-[60vh] overflow-auto">
           {q.isLoading ? (
