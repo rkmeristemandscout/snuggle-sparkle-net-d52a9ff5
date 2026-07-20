@@ -11,12 +11,5 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
-    // Pre-render public marketing/SEO routes at build time for SSG-like output.
-    // Authenticated routes stay dynamic (SSR/CSR) and are not listed here.
-    prerender: {
-      enabled: true,
-      crawlLinks: false,
-      routes: ["/", "/auth", "/sitemap.xml", "/robots.txt"],
-    },
   },
 });
