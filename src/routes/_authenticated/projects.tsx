@@ -463,6 +463,7 @@ function ProjectsPage() {
                 ? `Exporting… ${exportProgress.rows.toLocaleString()} rows`
                 : "Exporting…"
               : "Export CSV"}
+          </Button>
           <Button
             size="sm"
             onClick={() => {
