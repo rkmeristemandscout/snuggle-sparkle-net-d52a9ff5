@@ -1617,6 +1617,8 @@ function DiscussionsTab({ projectId, orgId }: { projectId: string; orgId: string
                             await del({ data: { id: r.id } });
                             inv();
                           }}
+                          reactions={reactionsByDiscussion.get(r.id) ?? []}
+                          onToggleReaction={(emoji) => onToggleReaction(r.id, emoji)}
                         />
                       ))}
                     </div>
