@@ -1,15 +1,36 @@
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, MailOpen, MailPlus } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/use-notifications";
+import { useSession } from "@/hooks/use-session";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 export function NotificationsMenu() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useSession();
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] });
+
+  const markUnread = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("notifications").update({ read_at: null }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const filtered = filter === "unread" ? notifications.filter((n) => !n.read_at) : notifications;
 
   return (
     <Popover>
@@ -33,26 +54,42 @@ export function NotificationsMenu() {
           </div>
           {unreadCount > 0 && (
             <Button size="sm" variant="ghost" onClick={() => markAllRead()}>
-              <CheckCheck className="mr-1 h-4 w-4" /> Mark all
+              <CheckCheck className="mr-1 h-4 w-4" /> Mark all read
             </Button>
           )}
         </div>
+        <div className="flex gap-1 border-b px-2 py-2 text-xs">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "secondary" : "ghost"}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "unread" ? "secondary" : "ghost"}
+            onClick={() => setFilter("unread")}
+          >
+            Unread {unreadCount > 0 && <Badge variant="outline" className="ml-1">{unreadCount}</Badge>}
+          </Button>
+        </div>
         <ScrollArea className="max-h-96">
-          {notifications.length === 0 ? (
+          {filtered.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No notifications yet.
+              {filter === "unread" ? "No unread notifications." : "No notifications yet."}
             </p>
           ) : (
             <ul className="divide-y">
-              {notifications.map((n) => (
-                <li key={n.id}>
+              {filtered.map((n) => (
+                <li key={n.id} className="group relative">
                   <button
                     type="button"
                     onClick={() => {
                       if (!n.read_at) markRead(n.id);
                       if (n.link) navigate({ to: n.link });
                     }}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/60"
+                    className="flex w-full items-start gap-3 px-4 py-3 pr-14 text-left hover:bg-muted/60"
                   >
                     <span
                       className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
@@ -76,6 +113,19 @@ export function NotificationsMenu() {
                       </p>
                     </div>
                   </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-2 top-2 h-7 w-7 opacity-0 transition group-hover:opacity-100"
+                    title={n.read_at ? "Mark unread" : "Mark read"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (n.read_at) markUnread.mutate(n.id);
+                      else markRead(n.id);
+                    }}
+                  >
+                    {n.read_at ? <MailPlus className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
+                  </Button>
                 </li>
               ))}
             </ul>
