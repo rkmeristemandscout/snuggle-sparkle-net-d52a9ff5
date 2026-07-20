@@ -370,8 +370,7 @@ function CommentsTab({ task }: { task: TaskRow }) {
 
   const removeAttachment = async (a: { id: string; storage_path: string }) => {
     try {
-      await supabase.storage.from("task-attachments").remove([a.storage_path]);
-      await delAtt({ data: { id: a.id } });
+      await delAtt({ data: { id: a.id, storage_path: a.storage_path } });
       inv();
     } catch (e) { toast.error((e as Error).message); }
   };
