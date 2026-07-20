@@ -42,6 +42,7 @@ import { Route as AuthenticatedOrganizationsSlugRouteImport } from './routes/_au
 import { Route as AuthenticatedDepartmentsDepartmentIdRouteImport } from './routes/_authenticated/departments.$departmentId'
 import { Route as AuthenticatedBillingPlansRouteImport } from './routes/_authenticated/billing.plans'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe.webhook'
+import { Route as ApiPublicShareTokenRouteImport } from './routes/api/public/share.$token'
 import { Route as ApiPublicJobsCleanupRouteImport } from './routes/api/public/jobs.cleanup'
 import { Route as AuthenticatedOrganizationsSlugSettingsRouteImport } from './routes/_authenticated/organizations.$slug.settings'
 import { Route as AuthenticatedOrganizationsSlugMembersRouteImport } from './routes/_authenticated/organizations.$slug.members'
@@ -221,6 +222,11 @@ const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
   path: '/api/public/stripe/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicShareTokenRoute = ApiPublicShareTokenRouteImport.update({
+  id: '/api/public/share/$token',
+  path: '/api/public/share/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJobsCleanupRoute = ApiPublicJobsCleanupRouteImport.update({
   id: '/api/public/jobs/cleanup',
   path: '/api/public/jobs/cleanup',
@@ -274,6 +280,7 @@ export interface FileRoutesByFullPath {
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
+  '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
+  '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
 }
 export interface FileRoutesById {
@@ -350,6 +358,7 @@ export interface FileRoutesById {
   '/_authenticated/organizations/$slug/members': typeof AuthenticatedOrganizationsSlugMembersRoute
   '/_authenticated/organizations/$slug/settings': typeof AuthenticatedOrganizationsSlugSettingsRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
+  '/api/public/share/$token': typeof ApiPublicShareTokenRoute
   '/api/public/stripe/webhook': typeof ApiPublicStripeWebhookRoute
 }
 export interface FileRouteTypes {
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
     | '/api/public/jobs/cleanup'
+    | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/organizations/$slug/members'
     | '/organizations/$slug/settings'
     | '/api/public/jobs/cleanup'
+    | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
   id:
     | '__root__'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/_authenticated/organizations/$slug/members'
     | '/_authenticated/organizations/$slug/settings'
     | '/api/public/jobs/cleanup'
+    | '/api/public/share/$token'
     | '/api/public/stripe/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -473,6 +485,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   JoinTokenRoute: typeof JoinTokenRoute
   ApiPublicJobsCleanupRoute: typeof ApiPublicJobsCleanupRoute
+  ApiPublicShareTokenRoute: typeof ApiPublicShareTokenRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
 }
 
@@ -709,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/share/$token': {
+      id: '/api/public/share/$token'
+      path: '/api/public/share/$token'
+      fullPath: '/api/public/share/$token'
+      preLoaderRoute: typeof ApiPublicShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/cleanup': {
       id: '/api/public/jobs/cleanup'
       path: '/api/public/jobs/cleanup'
@@ -905,6 +925,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   JoinTokenRoute: JoinTokenRoute,
   ApiPublicJobsCleanupRoute: ApiPublicJobsCleanupRoute,
+  ApiPublicShareTokenRoute: ApiPublicShareTokenRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
