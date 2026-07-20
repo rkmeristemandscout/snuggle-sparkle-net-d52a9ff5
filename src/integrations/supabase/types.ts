@@ -1060,56 +1060,304 @@ export type Database = {
           },
         ]
       }
+      task_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          organization_id: string
+          storage_path: string
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id: string
+          storage_path: string
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string
+          storage_path?: string
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_checklist: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_done: boolean
+          organization_id: string
+          position: number
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          organization_id: string
+          position?: number
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          organization_id?: string
+          position?: number
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_checklist_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          organization_id: string
+          parent_id: string | null
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          parent_id?: string | null
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          parent_id?: string | null
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "task_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_time_entries: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          hours: number | null
+          id: string
+          note: string | null
+          organization_id: string
+          started_at: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          hours?: number | null
+          id?: string
+          note?: string | null
+          organization_id: string
+          started_at?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          hours?: number | null
+          id?: string
+          note?: string | null
+          organization_id?: string
+          started_at?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_time_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          archived_at: string | null
           assignee_id: string | null
+          code: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          department_id: string | null
           description: string | null
           due_date: string | null
+          estimated_hours: number | null
           id: string
+          labels: string[]
+          logged_hours: number
           organization_id: string
           position: number
           priority: string
+          progress: number
           project_id: string
+          reporter_id: string | null
+          start_date: string | null
           status: string
+          team_id: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           assignee_id?: string | null
+          code?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           due_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          labels?: string[]
+          logged_hours?: number
           organization_id: string
           position?: number
           priority?: string
+          progress?: number
           project_id: string
+          reporter_id?: string | null
+          start_date?: string | null
           status?: string
+          team_id?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           assignee_id?: string | null
+          code?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          department_id?: string | null
           description?: string | null
           due_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          labels?: string[]
+          logged_hours?: number
           organization_id?: string
           position?: number
           priority?: string
+          progress?: number
           project_id?: string
+          reporter_id?: string | null
+          start_date?: string | null
           status?: string
+          team_id?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_organization_id_fkey"
             columns: ["organization_id"]
@@ -1122,6 +1370,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1460,6 +1715,7 @@ export type Database = {
         Args: { _new_name?: string; _project_id: string }
         Returns: string
       }
+      duplicate_task: { Args: { _task_id: string }; Returns: string }
       expire_invitation: {
         Args: { _invitation_id: string }
         Returns: undefined
@@ -1479,6 +1735,7 @@ export type Database = {
           slug: string
         }[]
       }
+      get_tasks_stats: { Args: { _org: string }; Returns: Json }
       get_team_stats: { Args: { _team: string }; Returns: Json }
       get_teams_dashboard_stats: { Args: { _org: string }; Returns: Json }
       get_user_permissions: {
