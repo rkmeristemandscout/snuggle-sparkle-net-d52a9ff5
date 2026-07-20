@@ -516,10 +516,20 @@ function AttachmentsTab({ task }: { task: TaskRow }) {
   };
 
   const download = async (path: string, name: string) => {
-    const { data, error } = await supabase.storage.from("task-attachments").createSignedUrl(path, 60);
-    if (error) { toast.error(error.message); return; }
-    const a = document.createElement("a");
-    a.href = data.signedUrl; a.download = name; a.target = "_blank"; a.click();
+    try {
+      const EXPIRES = 60;
+      const url = await getCachedSignedUrl(
+        `task-attachments:${path}:${EXPIRES}`,
+        EXPIRES,
+        async () => {
+          const { data, error } = await supabase.storage.from("task-attachments").createSignedUrl(path, EXPIRES);
+          if (error) throw error;
+          return data.signedUrl;
+        },
+      );
+      const a = document.createElement("a");
+      a.href = url; a.download = name; a.target = "_blank"; a.click();
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   return (
