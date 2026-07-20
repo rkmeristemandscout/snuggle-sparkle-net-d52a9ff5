@@ -924,6 +924,14 @@ function SettingsTab({ project }: { project: any }) {
 }
 
 // ---------------- Files ----------------
+function fileKind(mime: string): "image" | "video" | "audio" | "pdf" | "other" {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime === "application/pdf") return "pdf";
+  return "other";
+}
+
 function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
   const qc = useQueryClient();
   const list = useServerFn(listProjectFiles);
@@ -934,6 +942,11 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string; mime: string } | null>(null);
+  const [shareFor, setShareFor] = useState<{ id: string; name: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const q = useQuery({
     queryKey: ["project-files", projectId],
@@ -1028,14 +1041,27 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
     }
   };
 
-  const rows = (q.data ?? []) as any[];
+  const allRows = (q.data ?? []) as any[];
+  const rows = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    const from = fromDate ? new Date(fromDate).getTime() : null;
+    const to = toDate ? new Date(toDate).getTime() + 24 * 3600_000 : null;
+    return allRows.filter((f) => {
+      if (s && !f.file_name.toLowerCase().includes(s)) return false;
+      if (typeFilter !== "all" && fileKind(f.mime_type || "") !== typeFilter) return false;
+      const t = new Date(f.created_at).getTime();
+      if (from && t < from) return false;
+      if (to && t > to) return false;
+      return true;
+    });
+  }, [allRows, search, typeFilter, fromDate, toDate]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Files</CardTitle>
-          <Badge variant="secondary">{rows.length}</Badge>
+          <Badge variant="secondary">{rows.length}{rows.length !== allRows.length ? ` / ${allRows.length}` : ""}</Badge>
         </div>
         <div className="flex gap-2">
           <input
@@ -1052,6 +1078,31 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search filename…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="image">Images</SelectItem>
+              <SelectItem value="video">Video</SelectItem>
+              <SelectItem value="audio">Audio</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
+        </div>
+
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -1072,7 +1123,9 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
         {q.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No files uploaded yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {allRows.length === 0 ? "No files uploaded yet." : "No files match your filters."}
+          </p>
         ) : (
           <ul className="divide-y">
             {rows.map((f) => (
@@ -1089,6 +1142,14 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
                   </p>
                 </button>
                 <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setShareFor({ id: f.id, name: f.file_name })}
+                    title="Share link"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
                   <Button size="icon" variant="ghost" onClick={() => download(f)} title="Download">
                     <Download className="h-4 w-4" />
                   </Button>
@@ -1147,7 +1208,154 @@ function FilesTab({ projectId, orgId }: { projectId: string; orgId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {shareFor && (
+        <ShareDialog
+          fileId={shareFor.id}
+          fileName={shareFor.name}
+          projectId={projectId}
+          orgId={orgId}
+          onClose={() => setShareFor(null)}
+        />
+      )}
     </Card>
+  );
+}
+
+function ShareDialog({
+  fileId,
+  fileName,
+  projectId,
+  orgId,
+  onClose,
+}: {
+  fileId: string;
+  fileName: string;
+  projectId: string;
+  orgId: string;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const list = useServerFn(listFileShares);
+  const create = useServerFn(createFileShare);
+  const revoke = useServerFn(revokeFileShare);
+  const [hours, setHours] = useState<number>(24);
+  const [busy, setBusy] = useState(false);
+  const q = useQuery({
+    queryKey: ["file-shares", fileId],
+    queryFn: () => list({ data: { file_id: fileId } }),
+  });
+  const inv = () => qc.invalidateQueries({ queryKey: ["file-shares", fileId] });
+
+  const buildUrl = (token: string) =>
+    `${window.location.origin}/api/public/share/${token}`;
+
+  const copy = async (token: string) => {
+    await navigator.clipboard.writeText(buildUrl(token));
+    toast.success("Link copied");
+  };
+
+  const shares = (q.data ?? []) as any[];
+  const status = (s: any) => {
+    if (s.revoked_at) return { label: "Revoked", tone: "bg-slate-500/15 text-slate-600" };
+    if (new Date(s.expires_at).getTime() < Date.now())
+      return { label: "Expired", tone: "bg-amber-500/15 text-amber-600" };
+    return { label: "Active", tone: "bg-emerald-500/15 text-emerald-600" };
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="truncate">Share “{fileName}”</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Label htmlFor="share-hours">Expires in (hours)</Label>
+              <Select value={String(hours)} onValueChange={(v) => setHours(Number(v))}>
+                <SelectTrigger id="share-hours"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 hour</SelectItem>
+                  <SelectItem value="24">24 hours</SelectItem>
+                  <SelectItem value="168">7 days</SelectItem>
+                  <SelectItem value="720">30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const s = await create({
+                    data: {
+                      file_id: fileId,
+                      project_id: projectId,
+                      organization_id: orgId,
+                      expires_in_hours: hours,
+                    },
+                  });
+                  await copy(s.token);
+                  inv();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create link"}
+            </Button>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Existing links</p>
+            {q.isLoading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : shares.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No links yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {shares.map((s) => {
+                  const st = status(s);
+                  return (
+                    <li key={s.id} className="rounded-md border p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge className={st.tone} variant="secondary">{st.label}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          expires {new Date(s.expires_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <Input readOnly value={buildUrl(s.token)} className="mt-2 text-xs" />
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => copy(s.token)}>
+                          Copy
+                        </Button>
+                        {!s.revoked_at && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              await revoke({ data: { id: s.id } });
+                              inv();
+                              toast.success("Link revoked");
+                            }}
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
