@@ -390,7 +390,7 @@ export const listProjectFiles = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("project_files")
-      .select("*, profile:profiles!project_files_uploaded_by_fkey(id,full_name,avatar_url)")
+      .select("*")
       .eq("project_id", data.project_id)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -445,7 +445,7 @@ export const listProjectDiscussions = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("project_discussions")
-      .select("*, author:profiles!project_discussions_author_id_fkey(id,full_name,avatar_url)")
+      .select("*")
       .eq("project_id", data.project_id)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
