@@ -499,6 +499,7 @@ function TasksPage() {
                             aria-label={`Select task ${t.title}`}
                           />
                         </TableCell>
+                        <TableCell className="font-mono text-xs">{t.code ?? "—"}</TableCell>
                         <TableCell className="max-w-[260px]">
                           <Link to="/tasks/$taskId" params={{ taskId: t.id }} className="font-medium hover:underline">
                             {t.title}
