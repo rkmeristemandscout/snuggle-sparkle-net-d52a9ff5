@@ -55,13 +55,28 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, phone, bio")
+        .select("id, full_name, avatar_url")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
+
+  const privateProfile = useQuery({
+    enabled: !!user,
+    queryKey: ["profile_private", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profile_private")
+        .select("user_id, phone, bio")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   const { register, handleSubmit, formState, reset } = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -130,28 +145,28 @@ function ProfilePage() {
     defaultValues: { phone: "", bio: "" },
   });
   useEffect(() => {
-    if (profile.data)
+    if (privateProfile.data)
       additionalForm.reset({
-        phone: (profile.data as { phone?: string | null }).phone ?? "",
-        bio: (profile.data as { bio?: string | null }).bio ?? "",
+        phone: privateProfile.data.phone ?? "",
+        bio: privateProfile.data.bio ?? "",
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile.data]);
+  }, [privateProfile.data]);
 
   const saveAdditional = useMutation({
     mutationFn: async (v: AdditionalValues) => {
       const { error } = await supabase
-        .from("profiles")
-        .update({ phone: v.phone || null, bio: v.bio || null })
-        .eq("id", user!.id);
+        .from("profile_private")
+        .upsert({ user_id: user!.id, phone: v.phone || null, bio: v.bio || null });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Details saved");
-      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["profile_private"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   // --- Change password ---
   const passwordForm = useForm<PasswordFormValues>({
