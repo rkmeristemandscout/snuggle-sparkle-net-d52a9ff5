@@ -384,17 +384,43 @@ export const removeProjectMember = createServerFn({ method: "POST" })
   });
 
 /* -------------------- Files -------------------- */
+const FileKind = z.enum(["image", "video", "audio", "pdf", "other"]);
+const filesSchema = z.object({
+  project_id: z.string().uuid(),
+  search: z.string().trim().max(200).optional(),
+  kind: FileKind.optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+});
+
 export const listProjectFiles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => filesSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    let q = context.supabase
       .from("project_files")
-      .select("*")
-      .eq("project_id", data.project_id)
-      .order("created_at", { ascending: false });
+      .select("*", { count: "exact" })
+      .eq("project_id", data.project_id);
+    if (data.search) q = q.ilike("file_name", `%${data.search}%`);
+    if (data.kind === "image") q = q.like("mime_type", "image/%");
+    else if (data.kind === "video") q = q.like("mime_type", "video/%");
+    else if (data.kind === "audio") q = q.like("mime_type", "audio/%");
+    else if (data.kind === "pdf") q = q.eq("mime_type", "application/pdf");
+    else if (data.kind === "other") {
+      q = q
+        .not("mime_type", "like", "image/%")
+        .not("mime_type", "like", "video/%")
+        .not("mime_type", "like", "audio/%")
+        .neq("mime_type", "application/pdf");
+    }
+    if (data.from) q = q.gte("created_at", new Date(data.from).toISOString());
+    if (data.to) q = q.lte("created_at", new Date(new Date(data.to).getTime() + 86400_000 - 1).toISOString());
+    q = q.order("created_at", { ascending: false }).range(data.offset, data.offset + data.limit - 1);
+    const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return { rows: rows ?? [], count: count ?? 0 };
   });
 
 export const recordProjectFile = createServerFn({ method: "POST" })
