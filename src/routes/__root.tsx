@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { installClientErrorLogging } from "../lib/client-error-logging";
+import { validateAuthOrigin } from "../lib/auth-origin-check";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { RouterAuthContext } from "@/router";
