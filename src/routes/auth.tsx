@@ -114,8 +114,25 @@ function GoogleButton() {
   async function onClick() {
     setLoading(true);
     try {
+      // Lovable managed Google OAuth only allows .lovable.app origins and
+      // connected custom domains. Arbitrary Vercel preview URLs are rejected
+      // by the OAuth broker (400 invalid_request). If we're on a non-allowed
+      // origin, bounce the user to the canonical Lovable URL to sign in.
+      const LOVABLE_ORIGIN = "https://snuggle-sparkle-net.lovable.app";
+      const here = window.location.origin;
+      const isAllowed =
+        here === LOVABLE_ORIGIN ||
+        here.endsWith(".lovable.app") ||
+        here.startsWith("http://localhost");
+
+      if (!isAllowed) {
+        toast.info("Redirecting to secure sign-in…");
+        window.location.href = `${LOVABLE_ORIGIN}/auth?mode=signin`;
+        return;
+      }
+
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: here,
       });
       if (result.error) toast.error(result.error.message || "Google sign-in failed");
     } catch (e) {
