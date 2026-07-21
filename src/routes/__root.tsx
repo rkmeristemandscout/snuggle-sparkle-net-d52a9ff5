@@ -148,6 +148,7 @@ function RootComponent() {
 
   useEffect(() => {
     installClientErrorLogging();
+    validateAuthOrigin();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
