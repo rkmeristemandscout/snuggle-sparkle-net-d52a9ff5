@@ -5,6 +5,10 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/",
+      "destination": "https://snuggle-sparkle-net.lovable.app/"
+    },
+    {
       "source": "/:path*",
       "destination": "https://snuggle-sparkle-net.lovable.app/:path*"
     }
