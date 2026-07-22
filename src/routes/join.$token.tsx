@@ -27,7 +27,13 @@ function JoinPage() {
     onSuccess: (org) => {
       const created = Array.isArray(org) ? org[0] : org;
       toast.success(`Joined ${created?.name ?? "organization"}`);
-      if (created?.id) window.localStorage.setItem("stackly.currentOrgId", created.id);
+      if (created?.id && user?.id) {
+        try {
+          window.localStorage.setItem(`stackly.currentOrgId.${user.id}`, created.id);
+        } catch {
+          /* ignore */
+        }
+      }
       window.localStorage.removeItem(PENDING_KEY);
       navigate({ to: "/dashboard" });
     },

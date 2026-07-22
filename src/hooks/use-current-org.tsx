@@ -29,19 +29,37 @@ type Ctx = {
   refetch: () => void;
 };
 
-const STORAGE_KEY = "stackly.currentOrgId";
+const LEGACY_STORAGE_KEY = "stackly.currentOrgId";
+const storageKeyFor = (userId: string | undefined | null) =>
+  userId ? `stackly.currentOrgId.${userId}` : null;
 const OrgContext = createContext<Ctx | null>(null);
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const [currentOrgId, setCurrentOrgIdState] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(STORAGE_KEY);
-  });
+  const userId = user?.id ?? null;
+  const [currentOrgId, setCurrentOrgIdState] = useState<string | null>(null);
+
+  // Load per-user selection whenever the signed-in user changes. This avoids
+  // leaking a previous user's org id into a fresh session on the same browser.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Clean up the legacy shared key so it can't leak across accounts.
+    try {
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    const key = storageKeyFor(userId);
+    if (!key) {
+      setCurrentOrgIdState(null);
+      return;
+    }
+    setCurrentOrgIdState(window.localStorage.getItem(key));
+  }, [userId]);
 
   const query = useQuery({
     enabled: !!user,
-    queryKey: ["memberships", user?.id],
+    queryKey: ["memberships", userId],
     queryFn: async (): Promise<Membership[]> => {
       const { data, error } = await supabase
         .from("organization_members")
@@ -62,19 +80,40 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const memberships = query.data ?? [];
 
   useEffect(() => {
-    if (!memberships.length) return;
-    const stillValid = currentOrgId && memberships.some((m) => m.organization.id === currentOrgId);
-    if (!stillValid) {
+    if (!userId || query.isLoading) return;
+    const key = storageKeyFor(userId);
+    if (!key) return;
+    const stillValid =
+      !!currentOrgId && memberships.some((m) => m.organization.id === currentOrgId);
+    if (stillValid) return;
+    if (memberships.length > 0) {
       const next = memberships[0].organization.id;
       setCurrentOrgIdState(next);
-      window.localStorage.setItem(STORAGE_KEY, next);
+      try {
+        window.localStorage.setItem(key, next);
+      } catch {
+        /* ignore */
+      }
+    } else if (currentOrgId !== null) {
+      setCurrentOrgIdState(null);
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
     }
-  }, [memberships, currentOrgId]);
+  }, [memberships, currentOrgId, userId, query.isLoading]);
 
   const setCurrentOrgId = (id: string | null) => {
     setCurrentOrgIdState(id);
-    if (id) window.localStorage.setItem(STORAGE_KEY, id);
-    else window.localStorage.removeItem(STORAGE_KEY);
+    const key = storageKeyFor(userId);
+    if (!key) return;
+    try {
+      if (id) window.localStorage.setItem(key, id);
+      else window.localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
   };
 
   const currentMembership = useMemo(
@@ -97,6 +136,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     </OrgContext.Provider>
   );
 }
+
 
 export function useCurrentOrg() {
   const ctx = useContext(OrgContext);
