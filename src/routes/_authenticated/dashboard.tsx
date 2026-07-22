@@ -112,7 +112,13 @@ function Dashboard() {
           .is("accepted_at", null)
           .is("rejected_at", null),
       ]);
-      const memberRows = members.data ?? [];
+      const allRows = members.data ?? [];
+      const seen = new Set<string>();
+      const memberRows = allRows.filter((m) => {
+        if (seen.has(m.user_id)) return false;
+        seen.add(m.user_id);
+        return true;
+      });
       const ids = memberRows.slice(0, 5).map((m) => m.user_id);
       let profiles: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
       if (ids.length) {
@@ -135,6 +141,7 @@ function Dashboard() {
           profile: profiles[m.user_id] ?? null,
         })),
       };
+
     },
   });
 
